@@ -196,10 +196,9 @@ export function InstLineMesh(target_A,target_B,thisMaterial,thisScale,thisName,t
     }
 }
 
-export function InstCurveLineMesh(target_A,target_B,thisMaterial,thisScale,thisHeight,thisName,thisParent,thisScene,thisTrafficDirectionForward) 
+export function InstCurveLineMesh(target_A,target_B,thisMaterial,thisScale,thisHeight,thisName,thisParent,thisScene,thisLightBallColor) 
 {
     const thisLineMesh =new THREE.Object3D();
-    
 
     const pos_A = new THREE.Vector3();
     target_A.getWorldPosition(pos_A);
@@ -213,7 +212,6 @@ export function InstCurveLineMesh(target_A,target_B,thisMaterial,thisScale,thisH
 
     const pos_Middle_B = new THREE.Vector3((pos_Middle.x+pos_B.x)/2,0.8*thisHeight,(pos_Middle.z+pos_B.z)/2);
 
-
     const destinations = new THREE.CatmullRomCurve3([pos_A,pos_Middle_A, pos_Middle,pos_Middle_B,pos_B]);
     destinations.curveType = 'centripetal';
     const extrusionSegments=100;
@@ -225,88 +223,34 @@ export function InstCurveLineMesh(target_A,target_B,thisMaterial,thisScale,thisH
     thisLineMesh.add( mesh );
     thisLineMesh.name=thisName;
 
-    const geometry = new THREE.SphereGeometry( 3, 32, 16 ); 
-    const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+    const geometry = new THREE.SphereGeometry( 1.5, 32, 16 ); 
+    const material = new THREE.MeshBasicMaterial({color: thisLightBallColor});
     const ball = new THREE.Mesh( geometry, material );
+    const clock = new THREE.Clock();
     let step=0;
-    
 
-    if(thisTrafficDirectionForward!=null)
-    {
-        
+    if(thisLightBallColor!=null)
+    { 
         thisScene.add( ball );
-
-        
-
-        if(thisTrafficDirectionForward)
-        {
-            step=0;
-        }
-
-        else
-        {
-            step=1;
-        }
+        TrafficAnim();
     }
     
-    //thisScene.add(thisLineMesh);
-
     if(thisParent!=null)
     {
         thisParent.add(thisLineMesh)
     }
     
-    else
+    if(thisParent===null)
     {
         thisScene.add( thisLineMesh );
-       
     }
 
-    
-
-
-    TrafficAnim();
-    
-        function TrafficAnim()
-        {
-            requestAnimationFrame(TrafficAnim);
-    
-            //console.log(point_pos[current_pos]);
-            
-            ball.position.copy(destinations.getPoint(step));
-            
-            //console.log(ball.position);
-            if(thisTrafficDirectionForward!=null)
-            {
-                if(thisTrafficDirectionForward)
-                {
-                    if(step<1)
-                    {
-                        step+=0.025;
-                    }
-                
-                    if(step>1)
-                    {
-                        step=0;
-                    }
-                }
-           
-                else
-                {
-                    if(step>0)
-                    {
-                        step-=0.025;
-                    }
-
-                    if(step<0)
-                    {
-                        step=1;
-                    }
-                }
-            }
-            
-        
-        }
+    function TrafficAnim()
+    {
+        requestAnimationFrame(TrafficAnim);
+        step=THREE.MathUtils.pingpong (clock.elapsedTime-clock.getDelta(), 1);
+        ball.position.copy(destinations.getPoint(step));
+    }
 }
 
 export function SetupDafaultMaterial(filePath , defultMaterial)
