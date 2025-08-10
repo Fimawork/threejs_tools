@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TIFFLoader } from 'three/addons/loaders/TIFFLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 export let targetPosition=null;
@@ -129,6 +130,31 @@ export function InstFBXLoader(filePath,thisPos,thisRot,thisScale,thisName,thisPa
         
         thisObject.name=thisName;
     } );
+}
+
+
+export function InstGLTFLoader(filePath,thisPos,thisRot,thisScale,thisName,thisParent,thisScene)
+{
+	const loader = new GLTFLoader();
+	loader.load( filePath, function ( gltf ) {
+
+		const model = gltf.scene;
+		model.position.copy(thisPos);
+		model.rotation.set(thisRot.x, thisRot.y, thisRot.z);
+		model.scale.set(thisScale,thisScale,thisScale);
+		model.name=thisName;
+
+		if(thisParent!=null)
+		{
+			thisParent.add(model)
+		}
+
+		else
+		{
+			thisScene.add( model );
+		}
+
+	});
 }
 
 
@@ -432,6 +458,35 @@ export function InputEvent()
     {
         targetPosition=null
     }
+}
+
+export function FindMataterialByName(thisName,thisMaterial,thisScene)
+{
+    thisScene.traverse(function (child){
+
+      if (child.isMesh && child.material) {
+        const material = child.material;
+
+        // 單一材質情況
+        if (material.name === thisName) {
+          console.log("找到了！", material);
+          console.log("找到了！", material.type);
+          thisMaterial=material;
+        }
+
+        // 如果是多重材質（Array）
+        if (Array.isArray(material)) {
+          material.forEach(mat => {
+            if (mat.name === thisName) {
+              console.log("找到了一個在陣列中的材質：", mat);
+              console.log("找到了一個在陣列中的材質：", mat.type);
+              thisMaterial=mat;
+            }
+          });
+        }
+      }
+
+    });
 }
 
 
