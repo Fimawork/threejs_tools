@@ -8,6 +8,10 @@ export let targetPosition=null;
 
 export let CameraDefaultPos, ControlsTargetDefaultPos;
 
+///建議設置默認位置 posData[0]={ camera_pos:CameraDefaultPos, controlsTarget_pos:ControlsTargetDefaultPos};
+///可自行擴充點位，EX:posData[1]={ camera_pos:new THREE.Vector3(267.359,339.340,302.847), controlsTarget_pos:new THREE.Vector3(-22.364,-14.285,25.345)};
+export let posData=[]=[{ camera_pos:new THREE.Vector3(0, 5, 5), controlsTarget_pos:new THREE.Vector3(0, 0, 0)}];
+
 
 
 
@@ -26,26 +30,7 @@ const camera_controls_params = {
 
 export function CameraManager(i)
 {
-    switch (i)
-    {
-        case 0:
-            targetPosition={camera_pos:CameraDefaultPos,controlsTarget_pos:ControlsTargetDefaultPos};
-        break;
-
-        case 1://scenario_01
-            targetPosition={camera_pos:new THREE.Vector3(267.359,339.340,302.847),controlsTarget_pos:new THREE.Vector3(-22.364,-14.285,25.345)};
-        break;
-
-        case 2://scenario_02
-            targetPosition={camera_pos:new THREE.Vector3(43.025,213.375,24.418),controlsTarget_pos:new THREE.Vector3(-25.722,96.421,-111.355)};
-        break;
-
-        case 3://scenario_03
-            targetPosition={camera_pos:new THREE.Vector3(-110.130,100.762,207.078),controlsTarget_pos:new THREE.Vector3(-142.488,-40.777,112.939)};
-        break;
-
-
-    }
+    targetPosition=posData[i];
 }
 
 export function SetDefaultCameraStatus(thisCameraDefaultPos,thisControlsTargetPos)
