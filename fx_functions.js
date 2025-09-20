@@ -486,6 +486,10 @@ export function Material_Editor(target,param)
     {
         const loader = new THREE.TextureLoader();
         targetMaterial.map = loader.load(param.texture_img);
+        targetMaterial.map.wrapS = THREE.RepeatWrapping;
+        targetMaterial.map.wrapT = THREE.RepeatWrapping;
+        targetMaterial.map.repeat.set(param.texture_repeat_x, param.texture_repeat_y);
+        targetMaterial.map.offset.set(param.texture_offset_x, param.texture_offset_y);
     }
 
     if(param.normalMap_img!=null)
@@ -495,10 +499,6 @@ export function Material_Editor(target,param)
         targetMaterial.normalScale.set(param.normal_scale, param.normal_scale);  
     }
     
-    targetMaterial.map.wrapS = THREE.RepeatWrapping;
-    targetMaterial.map.wrapT = THREE.RepeatWrapping;
-    targetMaterial.map.repeat.set(param.texture_repeat_x, param.texture_repeat_y);
-    targetMaterial.map.offset.set(param.texture_offset_x, param.texture_offset_y);
     targetMaterial.transparent= param.transparent;
     targetMaterial.alphaHash= param.alphahash;
     targetMaterial.opacity = param.opacity;
