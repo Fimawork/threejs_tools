@@ -3,6 +3,7 @@ import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TIFFLoader } from 'three/addons/loaders/TIFFLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 
 export let targetPosition=null;
 
@@ -12,8 +13,7 @@ export let CameraDefaultPos, ControlsTargetDefaultPos;
 ///可自行擴充點位，EX:posData[1]={ camera_pos:new THREE.Vector3(267.359,339.340,302.847), controlsTarget_pos:new THREE.Vector3(-22.364,-14.285,25.345)};
 export let posData=[]=[{ camera_pos:new THREE.Vector3(0, 5, 5), controlsTarget_pos:new THREE.Vector3(0, 0, 0)}];
 
-
-
+export const dracoLoader = new DRACOLoader();
 
 //let camera_position=[{ camera_pos: new THREE.Vector3(0, 0, 0), controlsTarget_pos: new THREE.Vector3(0, 0, 0) }];
 const camera_controls_params = {
@@ -142,6 +142,30 @@ export function InstGLTFLoader(filePath,thisPos,thisRot,thisScale,thisName,thisP
 	});
 }
 
+export function InstGLTFDracoLoader(filePath,thisPos,thisRot,thisScale,thisName,thisParent,thisScene)
+{
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+    loader.load( filePath, function ( gltf ) {
+
+        const model = gltf.scene;
+        model.position.copy(thisPos);
+        model.rotation.set(thisRot.x, thisRot.y, thisRot.z);
+        model.scale.set(thisScale,thisScale,thisScale);
+        model.name=thisName;
+
+        if(thisParent!=null)
+        {
+            thisParent.add(model)
+        }
+
+        else
+        {
+            thisScene.add( model );
+        }
+
+    });
+}
 
 export function InstTiffLoader(thisObject,filePath,thisPos,thisRot,thisScale,tintColor, opacity, thisParent, thisScene)
 {
