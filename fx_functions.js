@@ -167,6 +167,59 @@ export function InstGLTFDracoLoader(filePath,thisPos,thisRot,thisScale,thisName,
     });
 }
 
+export function InstGLTFDracoBase64Loader(base64String,thisPos,thisRot,thisScale,thisName,thisParent,thisScene)
+{
+    //加密模組
+	function base64ToArrayBuffer(base64) 
+	{
+		// 去除所有非 base64 字元
+		base64 = base64.replace(/[^A-Za-z0-9+/=]/g, "");
+
+    	const binary = atob(base64);
+    	const len = binary.length;
+    	const bytes = new Uint8Array(len);
+
+    	for (let i = 0; i < len; i++) 
+		{
+    	    bytes[i] = binary.charCodeAt(i);
+    	}
+
+    	return bytes.buffer;
+	}
+
+	const arrayBuffer = base64ToArrayBuffer(base64String);
+
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+    
+    loader.parse(
+        arrayBuffer,
+        '',
+        (gltf) => {
+            
+            const model = gltf.scene;
+            model.position.copy(thisPos);
+            model.rotation.set(thisRot.x, thisRot.y, thisRot.z);
+            model.scale.set(thisScale,thisScale,thisScale);
+            model.name=thisName;
+
+            if(thisParent!=null)
+            {
+                thisParent.add(model)
+            }
+
+            else
+            {
+                thisScene.add( model );
+            }
+
+        },
+        (error) => {
+            console.error('Failed to load model:', error);
+        }
+    );
+}
+
 export function InstTiffLoader(thisObject,filePath,thisPos,thisRot,thisScale,tintColor, opacity, thisParent, thisScene)
 {
     const loader = new TIFFLoader();
