@@ -4,6 +4,7 @@ import { TIFFLoader } from 'three/addons/loaders/TIFFLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import Stats from 'three/addons/libs/stats.module.js';
 
 export let targetPosition=null;
 
@@ -24,6 +25,8 @@ const camera_controls_params = {
 	controlsTarget_y:0,
 	controlsTarget_z:0
 };
+
+const stats = new Stats();
 
 ///main.js
 //import {CameraDefaultPos,ControlsTargetDefaultPos} from "/main.js";
@@ -605,6 +608,32 @@ const param_ = {
     alphahash:false,
     opacity:1
 };
+
+export function WebGLInspector(thisContainer, thisRenderer)
+{
+    thisContainer.appendChild(stats.dom);
+
+    let info = document.createElement("div");
+    info.setAttribute("id", "webglInfoPanel");
+
+    info.style.cssText = `position:absolute;top:6%;left:0%;z-index: 99;color: rgba(0, 225, 255, 1);font-family: "Roboto", sans-serif;font-size: 15px;`;
+    thisContainer.appendChild(info);
+
+    var drawCalls=thisRenderer.info.render.calls;
+
+    FetchData(drawCalls,info);
+
+    function FetchData(c,css)
+    {  
+        requestAnimationFrame(FetchData);
+
+        stats.update();
+
+        document.getElementById("webglInfoPanel").textContent=`
+            Draw Calls: ${c}
+        `;
+    }
+}
 
 
 //export { UpdateCameraRotation, SceneTag};
