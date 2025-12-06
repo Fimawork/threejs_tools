@@ -2,8 +2,10 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TIFFLoader } from 'three/addons/loaders/TIFFLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let targetPosition=null;
@@ -223,6 +225,61 @@ export function InstGLTFDracoBase64Loader(base64String,thisPos,thisRot,thisScale
     );
 }
 
+//搭配其他GLTF Loader使用，用來降低Drawcall，提高效能。
+export function ReturnBufferGeometry(target,thisMaterial,thisParent,thisScene)
+{
+    const geometries = [];
+    const defaultMaterial= new THREE.MeshStandardMaterial();
+
+    target.traverse( function ( object ) {	
+
+        if ( object.isMesh && object.geometry)
+        {
+            if(thisMaterial==null)
+            {
+                defaultMaterial.color.set(object.material.color);
+                defaultMaterial.roughness=object.material.roughness;
+                defaultMaterial.metalness=object.material.metalness;
+                defaultMaterial.transparent= object.material.transparent;
+                defaultMaterial.opacity = object.material.opacity;
+                defaultMaterial.needsUpdate = true;
+            }
+
+            object.updateWorldMatrix(true, false);
+            const clonedGeo = object.geometry.clone();
+            clonedGeo.applyMatrix4(object.matrixWorld);
+            geometries.push(clonedGeo);  
+        }
+    })
+
+    target.visible=false;
+    
+    const mergedGeo = mergeGeometries( geometries, true);	
+    let mergedMesh;
+
+    if(thisMaterial==null)
+    {
+        mergedMesh = new THREE.Mesh(mergedGeo, defaultMaterial);
+    }
+
+    else
+    {
+        mergedMesh = new THREE.Mesh(mergedGeo, thisMaterial);
+    }
+    
+    mergedMesh.name="BufferGeometry_"+target.name;
+
+    if(thisParent!=null)
+    {
+        thisParent.add(mergedMesh)
+    }
+
+    else
+    {
+        thisScene.add( mergedMesh );
+    }
+}
+
 export function InstTiffLoader(thisObject,filePath,thisPos,thisRot,thisScale,tintColor, opacity, thisParent, thisScene)
 {
     const loader = new TIFFLoader();
@@ -251,7 +308,7 @@ export function InstTiffLoader(thisObject,filePath,thisPos,thisRot,thisScale,tin
             thisScene.add( thisObject );
         }
         
-    } );
+    });
 }
 
 export function InstLineMesh(target_A,target_B,thisMaterial,thisScale,thisName,thisParent,thisScene) 
@@ -609,6 +666,125 @@ const param_ = {
     opacity:1
 };
 
+export function Material_Inspector(thisScene)
+{
+    const gui = new GUI();
+
+    let material= new THREE.MeshPhysicalMaterial( {
+		color: 0xffffff, metalness: 0.25, roughness: 0, transmission: 1.0
+    } );
+
+    let entity_list=[];
+
+    thisScene.traverse((child) => {
+        if (child.name !="") 
+        {
+            entity_list.push(child.name);   
+        }
+    });
+
+    let item ={name: entity_list[0],};
+
+    
+    function UpdateItem()
+    {
+        thisScene.getObjectByName(item.name).traverse( function ( object ) {
+            if ( object.isMesh )
+            {	
+                material=object.material;
+            }
+        });
+
+        UpdateContent();
+    }
+
+    ///設定初始化時的材質球
+    thisScene.getObjectByName(entity_list[0]).traverse( function ( object ) {
+        if ( object.isMesh )
+        {	
+            material=object.material;
+        }
+    });
+
+    const excludeKeyword ="mesh_";
+
+    entity_list = entity_list.filter(n => !n.includes(excludeKeyword));
+
+    gui.add( item, 'name', entity_list ).onChange( function () {
+
+        UpdateItem();
+	});
+
+    
+    let sub_gui;
+
+    UpdateContent();;
+
+    function UpdateContent()
+    {  
+        if (sub_gui) 
+        {
+            sub_gui.domElement.remove();
+        }
+
+
+        sub_gui = new GUI();
+        sub_gui.domElement.style.top = '53px';
+        const basicGui = sub_gui.addFolder("Basic Parameter");
+
+        basicGui.addColor({ color: material.color.getHex() }, 'color')
+        .name('Color')
+        .onChange(v => material.color.set(v));
+
+        if(material.roughness!=null)basicGui.add(material, 'roughness', 0, 1 );
+        if(material.metalness!=null)basicGui.add(material, 'metalness', 0, 1 );
+        if(material.ior!=null)basicGui.add(material, 'ior', 1, 2.333 );
+        if(material.reflectivity!=null)basicGui.add(material, 'reflectivity', 0, 1 );
+        if(material.transparent!=null)basicGui.add(material, 'transparent');
+        if(material.opacity!=null)basicGui.add(material, 'opacity', 0, 1, 0.01);
+
+        if(material.map!=null)
+        {
+            const map_texture=material.map;
+            const mapGui = sub_gui.addFolder("Map Parameter");
+            mapGui.add(map_texture.repeat, "x", 0, 2000, 0.1).name("repeat X").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.repeat, "y", 0, 2000, 0.1).name("repeat Y").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.offset, "x", -1, 1, 0.01).name("offset X").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.offset, "y", -1, 1, 0.01).name("offset Y").onChange(() => map_texture.needsUpdate = true);
+        }
+
+        if(material.bumpMap!=null)
+        {
+            const bumpMap_texture=material.bumpMap;
+            const bumpMapGui = sub_gui.addFolder("BumpMap Parameter");
+            bumpMapGui.add(bumpMap_texture.repeat, "x", 0, 2000, 0.1).name("repeat X").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.repeat, "y", 0, 2000, 0.1).name("repeat Y").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.offset, "x", -1, 1, 0.01).name("offset X").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.offset, "y", -1, 1, 0.01).name("offset Y").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(material, "bumpScale", -100, 100, 0.01).name("bumpScale").onChange(() => bumpMap_texture.needsUpdate = true);
+        }
+    }
+}
+
+//搭配Material_Inpector使用
+const material_param = {
+	color:0xff9900,
+    roughness:0.1,
+    metalness:0.9,
+    map_offset_x:0,
+    map_offset_y:0,
+    map_repeat_x:0,
+    map_repeat_y:0, 
+    bumpMap_offset_x:0,
+    bumpMap_offset_y:0,
+    bumpMap_repeat_x:0,
+    bumpMap_repeat_y:0,
+    bumpMap_scale:1,
+    transparent:false,
+    alphahash:false,
+    opacity:1
+};
+
 export function WebGLInspector(thisContainer, thisRenderer)
 {
     thisContainer.appendChild(stats.dom);
@@ -621,19 +797,33 @@ export function WebGLInspector(thisContainer, thisRenderer)
 
     var drawCalls=thisRenderer.info.render.calls;
 
-    FetchData(drawCalls,info);
+    stats.update();
 
-    function FetchData(c,css)
-    {  
-        requestAnimationFrame(FetchData);
-
-        stats.update();
-
-        document.getElementById("webglInfoPanel").textContent=`
-            Draw Calls: ${c}
-        `;
-    }
+    document.getElementById("webglInfoPanel").textContent=`Draw Calls: ${drawCalls}`;
 }
 
+export function ToThreeEulerAngle(degree)
+{
+    let eulerAngle=Math.PI/180*degree;
+    return eulerAngle;
+}
+
+export function LoadHDRWithPMREM(hdr_src,thisScene,thisRenderer) 
+{
+    new HDRLoader()
+        .load( hdr_src, function ( texture ) {
+    
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+ 
+        const pmrem = new THREE.PMREMGenerator(thisRenderer);
+        const envMap = pmrem.fromEquirectangular(texture).texture;
+                    
+        thisScene.environment = envMap; // PBR 使用的環境光
+
+        texture.dispose();
+        pmrem.dispose();
+    
+    } );
+}
 
 //export { UpdateCameraRotation, SceneTag};
