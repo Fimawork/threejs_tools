@@ -582,6 +582,46 @@ export function InputEvent()
     }
 }
 
+export function InputEventListener(targetElement)
+{
+    let isMouseLeftPressed=false;
+    var newPointerXValue=0;
+    var newPointerYValue=0;
+    var currentPointerXValue=0;
+    var currentPointerYValue=0;
+
+    targetElement.addEventListener( 'pointermove', (event)=>{
+
+        newPointerXValue=event.clientX;
+        newPointerYValue=event.clientY;
+
+        if(isMouseLeftPressed)
+        {
+            if(Math.abs(newPointerXValue-currentPointerXValue)>10||Math.abs(newPointerYValue-currentPointerYValue)>10)
+            {
+                if(targetPosition!=null)
+                {
+                    targetPosition=null
+                }
+            }
+        }
+    });
+
+    targetElement.addEventListener("pointerdown", (event) => {
+        
+        isMouseLeftPressed=true;
+        currentPointerXValue=newPointerXValue;
+        currentPointerYValue=newPointerYValue;
+
+    });
+
+    targetElement.addEventListener("pointerup", (event) => {
+
+        isMouseLeftPressed=false;
+
+    });
+}
+
 export function FindMataterialByName(thisName,thisMaterial,thisScene)
 {
     thisScene.traverse(function (child){
