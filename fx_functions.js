@@ -18,6 +18,10 @@ export let posData=[]=[{ camera_pos:new THREE.Vector3(0, 5, 5), controlsTarget_p
 
 export const dracoLoader = new DRACOLoader();
 
+//draco模組
+dracoLoader.setDecoderPath( 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/' );
+dracoLoader.preload();
+
 //let camera_position=[{ camera_pos: new THREE.Vector3(0, 0, 0), controlsTarget_pos: new THREE.Vector3(0, 0, 0) }];
 const camera_controls_params = {
 	camera_x:0,
