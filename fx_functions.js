@@ -18,6 +18,14 @@ export let posData=[]=[{ camera_pos:new THREE.Vector3(0, 5, 5), controlsTarget_p
 
 export const dracoLoader = new DRACOLoader();
 
+//線上draco模組
+//dracoLoader.setDecoderPath( 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/' );
+//dracoLoader.preload();
+
+//本地draco模組
+//dracoLoader.setDecoderPath( './jsm/libs/draco/' );
+//dracoLoader.preload();
+
 //let camera_position=[{ camera_pos: new THREE.Vector3(0, 0, 0), controlsTarget_pos: new THREE.Vector3(0, 0, 0) }];
 const camera_controls_params = {
 	camera_x:0,
@@ -580,46 +588,6 @@ export function InputEvent()
     {
         targetPosition=null
     }
-}
-
-export function InputEventListener(targetElement)
-{
-    let isMouseLeftPressed=false;
-    var newPointerXValue=0;
-    var newPointerYValue=0;
-    var currentPointerXValue=0;
-    var currentPointerYValue=0;
-
-    targetElement.addEventListener( 'pointermove', (event)=>{
-
-        newPointerXValue=event.clientX;
-        newPointerYValue=event.clientY;
-
-        if(isMouseLeftPressed)
-        {
-            if(Math.abs(newPointerXValue-currentPointerXValue)>10||Math.abs(newPointerYValue-currentPointerYValue)>10)
-            {
-                if(targetPosition!=null)
-                {
-                    targetPosition=null
-                }
-            }
-        }
-    });
-
-    targetElement.addEventListener("pointerdown", (event) => {
-        
-        isMouseLeftPressed=true;
-        currentPointerXValue=newPointerXValue;
-        currentPointerYValue=newPointerYValue;
-
-    });
-
-    targetElement.addEventListener("pointerup", (event) => {
-
-        isMouseLeftPressed=false;
-
-    });
 }
 
 export function FindMataterialByName(thisName,thisMaterial,thisScene)
