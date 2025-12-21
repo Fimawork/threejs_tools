@@ -59,3 +59,20 @@ export function InstEtchingMaterial(thisColor,thisRoughness,thisMetalness,thisRe
 
     return new_etching_material;
 }
+
+export function InstMaterial(thisColor,thisRoughness,thisMetalness,thisTransmission,thisIor,thisReflectivity,isTransparent,thisOpacity,isDepthWrite)
+{
+    let new_material=new THREE.MeshPhysicalMaterial();
+
+    new_material.color.set(thisColor);
+    new_material.roughness=thisRoughness;
+    new_material.metalness=thisMetalness;
+    new_material.transmission=thisTransmission;//0.0: 完全不透明（預設）。1.0: 完全透射（光線完全穿過，像清澈的玻璃）。
+    new_material.ior=thisIor;//空氣: 1.0 水: 1.33 玻璃: 1.5 鑽石: 2.4
+    new_material.reflectivity=thisReflectivity;
+    new_material.transparent=isTransparent;
+    new_material.opacity =thisOpacity;
+    new_material.depthWrite=isDepthWrite;
+
+    return new_material;
+}

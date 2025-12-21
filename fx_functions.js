@@ -18,6 +18,7 @@ export let posData=[]=[{ camera_pos:new THREE.Vector3(0, 5, 5), controlsTarget_p
 
 export const dracoLoader = new DRACOLoader();
 
+//須放置在init()內
 export function SetupEnvironment(setting)
 {
     if(setting==="onPrem")
@@ -189,27 +190,29 @@ export function InstGLTFDracoLoader(filePath,thisPos,thisRot,thisScale,thisName,
     });
 }
 
-export function InstGLTFDracoBase64Loader(base64String,thisPos,thisRot,thisScale,thisName,thisParent,thisScene)
+//加密模組
+export function Base64ToArrayBuffer(base64) 
 {
-    //加密模組
-	function base64ToArrayBuffer(base64) 
+	// 去除所有非 base64 字元
+	base64 = base64.replace(/[^A-Za-z0-9+/=]/g, "");
+
+	const binary = atob(base64);
+	const len = binary.length;
+	const bytes = new Uint8Array(len);
+
+	for (let i = 0; i < len; i++) 
 	{
-		// 去除所有非 base64 字元
-		base64 = base64.replace(/[^A-Za-z0-9+/=]/g, "");
-
-    	const binary = atob(base64);
-    	const len = binary.length;
-    	const bytes = new Uint8Array(len);
-
-    	for (let i = 0; i < len; i++) 
-		{
-    	    bytes[i] = binary.charCodeAt(i);
-    	}
-
-    	return bytes.buffer;
+	    bytes[i] = binary.charCodeAt(i);
 	}
 
-	const arrayBuffer = base64ToArrayBuffer(base64String);
+	return bytes.buffer;
+}
+
+
+export function InstGLTFDracoBase64Loader(base64String,thisPos,thisRot,thisScale,thisName,thisParent,thisScene)
+{
+
+	const arrayBuffer = Base64ToArrayBuffer(base64String);
 
     const loader = new GLTFLoader();
     loader.setDRACOLoader(dracoLoader);
@@ -507,57 +510,6 @@ export function Camera_Inspector(targetCamera,thisControls)
 
 }
 
-export function MarqueeModule(thisMarqueeList,thisMargueeContainer, rollingSpeed)
-{
-    let MarqueeContent="";
-
-    for(let j=0;j<thisMarqueeList.length;j++)
-    {
-        //list_length+=thisMarqueeList[j].offsetWidth;
-        //InstMarquee(thisMargueeContainer,thisMarqueeList[j], rollingSpeed);
-        MarqueeContent+=thisMarqueeList[j]+"            ";
-    }
-
-    //for(let i=0;i<2;i++)
-    //{
-        InstMarquee(thisMargueeContainer, MarqueeContent, rollingSpeed);
-    //}
-    
-    //setTimeout(() => {InstMarquee(thisMargueeContainer, MarqueeContent, rollingSpeed);}, 12500);//1000=1sec}
- 
-}
-
-function InstMarquee(thisContainer,thisMargueeText, speed) 
-{
-    let MargueeText = document.createElement("div");
-    MargueeText.setAttribute("class", "marquee_text");
-    MargueeText.textContent=thisMargueeText;
-    thisContainer.appendChild( MargueeText );
-
-    let offset = 0;
-
-    MarqueeAnimation();
-
-    function MarqueeAnimation()
-    {
-        requestAnimationFrame(MarqueeAnimation);
-
-        const ParentRect = thisContainer.getBoundingClientRect();
-		const childRect = MargueeText.getBoundingClientRect();
-		const relativeright = childRect.right - ParentRect.right;
-
-        offset  -= speed ;
-
-        MargueeText.style.transform = `translateX(${offset}px)`;
-
-
-        if (relativeright<-MargueeText.offsetWidth*0.5)
-        {
-            //thisContainer.appendChild(MargueeText);//變更為最後的子物件
-            offset=MargueeText.offsetWidth*0.5;
-        }
-    }
-}
 
 export async function SetSVGFillColor(thisSVGObject,thisFillColor)
 {
@@ -755,10 +707,12 @@ export function Material_Inspector(thisScene)
 
         if(material.roughness!=null)basicGui.add(material, 'roughness', 0, 1 );
         if(material.metalness!=null)basicGui.add(material, 'metalness', 0, 1 );
-        if(material.ior!=null)basicGui.add(material, 'ior', 1, 2.333 );
+        if(material.transmission!=null)basicGui.add(material, 'transmission', 0, 1 );
+        if(material.ior!=null)basicGui.add(material, 'ior', 1, 2.4 );
         if(material.reflectivity!=null)basicGui.add(material, 'reflectivity', 0, 1 );
         if(material.transparent!=null)basicGui.add(material, 'transparent');
         if(material.opacity!=null)basicGui.add(material, 'opacity', 0, 1, 0.01);
+        if(material.depthWrite!=null)basicGui.add(material, 'depthWrite');
 
         if(material.map!=null)
         {
@@ -841,6 +795,25 @@ export function LoadHDRWithPMREM(hdr_src,thisScene,thisRenderer)
         pmrem.dispose();
     
     } );
+}
+
+export function LerpFloat(current,target,ratio)
+{
+	let value;
+
+	if(ratio>1)
+	{
+		ratio=1;
+	}
+
+	if(ratio<0)
+	{
+		ratio=0;
+	}
+
+	value=current+(target-current)*ratio;
+
+	return value;
 }
 
 //export { UpdateCameraRotation, SceneTag};
