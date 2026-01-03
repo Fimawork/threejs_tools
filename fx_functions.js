@@ -31,7 +31,7 @@ export function SetupEnvironment(setting)
     if(setting==="cloud")
     {
         //draco模組
-        dracoLoader.setDecoderPath( 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/libs/draco/' );
+        dracoLoader.setDecoderPath( 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/' );
         dracoLoader.preload();
     }
 }
@@ -549,6 +549,46 @@ export function InputEvent()
     {
         targetPosition=null
     }
+}
+
+export function InputEventListener(targetElement)
+{
+    let isMouseLeftPressed=false;
+    var newPointerXValue=0;
+    var newPointerYValue=0;
+    var currentPointerXValue=0;
+    var currentPointerYValue=0;
+
+    targetElement.addEventListener( 'pointermove', (event)=>{
+
+        newPointerXValue=event.clientX;
+        newPointerYValue=event.clientY;
+
+        if(isMouseLeftPressed)
+        {
+            if(Math.abs(newPointerXValue-currentPointerXValue)>10||Math.abs(newPointerYValue-currentPointerYValue)>10)
+            {
+                if(targetPosition!=null)
+                {
+                    targetPosition=null
+                }
+            }
+        }
+    });
+
+    targetElement.addEventListener("pointerdown", (event) => {
+        
+        isMouseLeftPressed=true;
+        currentPointerXValue=newPointerXValue;
+        currentPointerYValue=newPointerYValue;
+
+    });
+
+    targetElement.addEventListener("pointerup", (event) => {
+
+        isMouseLeftPressed=false;
+
+    });
 }
 
 export function FindMataterialByName(thisName,thisMaterial,thisScene)
