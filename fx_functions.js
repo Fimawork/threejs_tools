@@ -570,7 +570,7 @@ export function InputEventListener(targetElement)
             {
                 if(targetPosition!=null)
                 {
-                    targetPosition=null
+                    targetPosition=null;
                 }
             }
         }
@@ -589,6 +589,15 @@ export function InputEventListener(targetElement)
         isMouseLeftPressed=false;
 
     });
+
+    targetElement.addEventListener("wheel", (event) => {
+
+        if(targetPosition!=null)
+        {
+            targetPosition=null;
+        }
+        
+  });
 }
 
 export function FindMataterialByName(thisName,thisMaterial,thisScene)
@@ -854,6 +863,11 @@ export function LerpFloat(current,target,ratio)
 	value=current+(target-current)*ratio;
 
 	return value;
+}
+
+export function isMobile()//偵測是否為行動裝置
+{
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 //export { UpdateCameraRotation, SceneTag};
