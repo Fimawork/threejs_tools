@@ -836,10 +836,9 @@ export function LoadHDRWithPMREM(hdr_src,thisScene,thisRenderer,thisAngle)
         texture.mapping = THREE.EquirectangularReflectionMapping;
  
         const pmrem = new THREE.PMREMGenerator(thisRenderer);
-        const envMap = pmrem.fromEquirectangular(texture).texture;
-        envMap.rotation=ToThreeEulerAngle(thisAngle);
-                    
+        const envMap = pmrem.fromEquirectangular(texture).texture;  
         thisScene.environment = envMap; // PBR 使用的環境光
+        thisScene.environmentRotation.y = ToThreeEulerAngle(thisAngle); 
 
         texture.dispose();
         pmrem.dispose();
