@@ -828,7 +828,7 @@ export function ToThreeEulerAngle(degree)
     return eulerAngle;
 }
 
-export function LoadHDRWithPMREM(hdr_src,thisScene,thisRenderer) 
+export function LoadHDRWithPMREM(hdr_src,thisScene,thisRenderer,thisAngle) 
 {
     new HDRLoader()
         .load( hdr_src, function ( texture ) {
@@ -837,6 +837,7 @@ export function LoadHDRWithPMREM(hdr_src,thisScene,thisRenderer)
  
         const pmrem = new THREE.PMREMGenerator(thisRenderer);
         const envMap = pmrem.fromEquirectangular(texture).texture;
+        envMap.rotation=ToThreeEulerAngle(thisAngle);
                     
         thisScene.environment = envMap; // PBR 使用的環境光
 
