@@ -1,0 +1,6 @@
+{
+    "name":"my-project",
+    "scripts": {
+        "base64_glb": "node base64_glb.js"
+    }
+}
