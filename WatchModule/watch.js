@@ -4,13 +4,15 @@ const fs=require("fs");
 const path=require("path");
 const { stdout, stderr } = require("process");
 
-const DRACOGLB_DIR="D:/fima/Works/fimawork/project/FW_0004/ArtAssets/models"; 
-const BAT_FILE="D:/fima/Works/fimawork/project/FW_0004/ArtAssets/sliceModels.bat";
-const SOURCE_DIR="D:/fima/Works/fimawork/project/FW_0004/ArtAssets/base64";  
-const TARGET_DIR="D:/fima/Works/fimawork/project/FW_0004/FW_0004_Signboard/models";
+const Project_Document="FW_0002";
+const Project_Name="FW_0002_Rollsys";
+const DRACOGLB_DIR=`D:/fima/Works/fimawork/project/${Project_Document}/ArtAssets/models`; 
+const BAT_FILE=`D:/fima/Works/fimawork/project/${Project_Document}/ArtAssets/sliceModels.bat`;
+const SOURCE_DIR=`D:/fima/Works/fimawork/project/${Project_Document}/ArtAssets/base64`;  
+const TARGET_DIR=`D:/fima/Works/fimawork/project/${Project_Document}/${Project_Name}/models`;
 
-const IMAGE_SOURCE_DIR="D:/fima/Works/fimawork/project/FW_0004/ArtAssets/images";
-const IMAGE_TARGET_DIR="D:/fima/Works/fimawork/project/FW_0004/FW_0004_Signboard/images";
+const IMAGE_SOURCE_DIR=`D:/fima/Works/fimawork/project/${Project_Document}/ArtAssets/images`;
+const IMAGE_TARGET_DIR=`D:/fima/Works/fimawork/project/${Project_Document}/${Project_Name}/images`;
 
 if(!fs.existsSync(TARGET_DIR))
 {
