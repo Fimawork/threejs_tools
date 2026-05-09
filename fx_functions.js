@@ -485,6 +485,39 @@ export function SwitchMaterial(thisObject , defultMaterial, newMaterial)
 
 export function Camera_Inspector(targetCamera,thisControls)
 {
+    const params = 
+    {
+        copyCameraPositionData: function() 
+        {
+            const camera_position = `${camera_controls_params.camera_x},${camera_controls_params.camera_y},${camera_controls_params.camera_z}`;
+
+            // 調用剪貼簿 API
+            navigator.clipboard.writeText(camera_position).then(() => {
+                console.log('座標已複製到剪貼簿:', camera_position);
+
+                // 選做：給使用者一點視覺回饋
+                alert('座標已複製！\n' + camera_position);
+            }).catch(err => {
+                console.error('複製失敗', err);
+            });
+        },
+
+        copyControlsTargetData: function() 
+        {
+            const controls_target = `${camera_controls_params.controlsTarget_x},${camera_controls_params.controlsTarget_y},${camera_controls_params.controlsTarget_z}`;
+
+            // 調用剪貼簿 API
+            navigator.clipboard.writeText(controls_target).then(() => {
+                console.log('座標已複製到剪貼簿:', controls_target);
+
+                // 選做：給使用者一點視覺回饋
+                alert('座標已複製！\n' + controls_target);
+            }).catch(err => {
+                console.error('複製失敗', err);
+            });
+        }
+    };
+
     const gui = new GUI();
     const CameraTransform = gui.addFolder( 'Camera Position' );
 
@@ -494,6 +527,8 @@ export function Camera_Inspector(targetCamera,thisControls)
 
     CameraTransform.add( camera_controls_params, 'camera_z').listen();
 
+    CameraTransform.add( params, 'copyCameraPositionData' ).name('Copy Camera Position');
+
     const ControlsTransform = gui.addFolder( 'ControlsTarget Position' );
 
     ControlsTransform.add( camera_controls_params, 'controlsTarget_x').listen();
@@ -502,6 +537,7 @@ export function Camera_Inspector(targetCamera,thisControls)
 
     ControlsTransform.add(camera_controls_params, 'controlsTarget_z').listen();
 
+    ControlsTransform.add( params, 'copyControlsTargetData' ).name('Copy Controls Target');
 
     FetchCameraPivotPosition();
 
@@ -517,7 +553,6 @@ export function Camera_Inspector(targetCamera,thisControls)
         camera_controls_params.controlsTarget_y=thisControls.target.y.toFixed(3);
         camera_controls_params.controlsTarget_z=thisControls.target.z.toFixed(3);
     }
-
 }
 
 
@@ -743,7 +778,16 @@ export function Material_Inspector(thisScene)
         UpdateItem();
 	});
 
-    
+    function FetchHexColor(targetMaterial)
+    {
+        const hex = targetMaterial.color.getHexString().toUpperCase();
+
+        // 拼湊成你想要的格式
+        const finalFormat = '0x' + hex;
+
+        return finalFormat;
+    }
+
     let sub_gui;
 
     UpdateContent();;
@@ -793,6 +837,43 @@ export function Material_Inspector(thisScene)
             bumpMapGui.add(bumpMap_texture.offset, "y", -1, 1, 0.01).name("offset Y").onChange(() => bumpMap_texture.needsUpdate = true);
             bumpMapGui.add(material, "bumpScale", -100, 100, 0.01).name("bumpScale").onChange(() => bumpMap_texture.needsUpdate = true);
         }
+
+
+        const params = 
+        {
+            copyEtchingMaterialData: function() //InstEtchingMaterial(thisColor,thisRoughness,thisMetalness,thisReflectivity,isTransparent,thisOpacity,map_src,map_repeat,map_offset,bumpMap_src,bumpMap_repeat,bumpMap_scale)
+            {
+                const etchingMaterial_data = `${FetchHexColor(material)},${material.roughness},${material.metalness},${material.reflectivity},${material.transparent},${material.   opacity},"${formatToRelativePath(material.map.image.src)}",new THREE.Vector2(${material.map.repeat.x},${material.map.repeat.y}),new THREE.Vector2(${material.map.  offset.x},${material.map.offset.y}),"${formatToRelativePath(material.bumpMap.image.src)}",new THREE.Vector2(${material.bumpMap.repeat.x},${material.bumpMap.repeat.   y}),${material.bumpScale}`;
+
+                // 調用剪貼簿 API
+                navigator.clipboard.writeText(etchingMaterial_data).then(() => {
+                    console.log('座標已複製到剪貼簿:', etchingMaterial_data);
+
+                    // 選做：給使用者一點視覺回饋
+                    alert('座標已複製！\n' + etchingMaterial_data);
+                }).catch(err => {
+                    console.error('複製失敗', err);
+                });
+            },
+
+        copyMaterialData: function() //InstMaterial(thisColor,thisRoughness,thisMetalness,thisTransmission,thisIor,thisReflectivity,isTransparent,thisOpacity,isDepthWrite)
+        {
+            const material_data = `${FetchHexColor(material)},${material.roughness},${material.metalness},${material.transmission},${material.ior},${material.reflectivity},${material.transparent},${material.opacity},${material.depthWrite}`;
+
+            // 調用剪貼簿 API
+            navigator.clipboard.writeText(material_data).then(() => {
+                console.log('座標已複製到剪貼簿:', material_data);
+
+                // 選做：給使用者一點視覺回饋
+                alert('座標已複製！\n' + material_data);
+            }).catch(err => {
+                console.error('複製失敗', err);
+            });
+        }
+        };
+
+        sub_gui.add( params, 'copyEtchingMaterialData' ).name('Copy Params for InstEtchingMaterial');
+        sub_gui.add( params, 'copyMaterialData' ).name('Copy Params for InstMaterial');
     }
 }
 
@@ -970,25 +1051,19 @@ export function SafeTraverse(root, callback) {
     }
 }
 
-///SafeTraverse範例
-//function updateConfiguratorPart(parentObject) {
-//    console.log("--- 開始更新配件與清理結構 ---");
-//
-//    safeTraverse(parentObject, (node) => {
-//        
-//        // 情境 A：如果是 Mesh，統一更換顏色
-//        if (node.isMesh) {
-//            node.material.color.set(0xff0000); // 變成紅色
-//            console.log(`更新材質: ${node.name}`);
-//        }
-//
-//        // 情境 B：發現空節點（沒有子代且不是 Mesh/Light）就刪除它
-//        const isInternalNode = node.type === 'Group' || node.type === 'Object3D';
-//        if (isInternalNode && node.children.length === 0 && node.parent) {
-//            node.parent.remove(node);
-//            console.log(`🗑️ 已安全移除空節點: ${node.name}`);
-//        }
-//    });
-//
-//    console.log("--- 更新完成 ---");
-//}
+function formatToRelativePath(fullUrl) 
+{
+    try {
+        // 使用 URL 類別解析字串
+        const urlObj = new URL(fullUrl);
+        
+        // urlObj.pathname 會得到 "/textures/Leather.png"
+        // 我們去掉最前面的斜線，並加上 ./
+        const relativePath = '.' + urlObj.pathname;
+        
+        return relativePath;
+    } catch (e) {
+        // 如果傳入的不是完整 URL（例如已經是相對路徑），則直接回傳原值
+        return fullUrl;
+    }
+}
