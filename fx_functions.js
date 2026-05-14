@@ -1067,3 +1067,54 @@ function formatToRelativePath(fullUrl)
         return fullUrl;
     }
 }
+
+export const WaitForSeconds = (sec) => new Promise(resolve => setTimeout(resolve, sec*1000)); 
+
+//使用範例(以秒為單位)
+//async function test()
+//{
+//	num++;
+//	_test_words.textContent = `${num}`;
+//	await FX.WaitForSeconds(1);
+//	test();
+//}
+
+export async function WaitUntilWithTimeout(conditionFn, timeout = 5, checkInterval = 0.01) // 每 10ms 檢查一次，避免佔用過多 CPU
+{ 
+    const startTime = Date.now();  
+    // 只要條件不成立，就一直「等一下再檢查」 
+
+    while (!conditionFn()) 
+    {
+        if (Date.now() - startTime > timeout*1000) 
+        { 
+            throw new Error("等待超時了！"); 
+        } 
+
+        await new Promise(r => setTimeout(r, checkInterval*1000)); 
+    }
+}
+
+//使用範例(若要修改傳入參數，以秒為單位)
+//let isDataLoaded=false;
+//
+//async function test()
+//{
+//	_test_words.textContent = `開始`;
+//	await FX.WaitUntilWithTimeout(() => isDataLoaded === true); 
+//	_test_words.textContent = `結束`;
+//}
+//
+//// 模擬 4.9 秒後資料載入完成
+//setTimeout(() => { isDataLoaded = true; }, 4900);
+//
+//test();
+
+// 範例：等待某個變數變成 true，設定超時為 10 秒，每 0.1秒 檢查一次
+//await WaitUntilWithTimeout(
+//    () => window.someDataLoaded === true, 
+//    10, // 這是新的 timeout (10秒)
+//    0.1    // 這是新的 checkInterval (100ms)
+//);
+
+
