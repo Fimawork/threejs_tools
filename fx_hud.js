@@ -11,7 +11,7 @@ export function InstLoadingEffect_Type_A()
     let thisImg = document.createElement("img");
     thisImg.setAttribute("class","loading_logo");
     thisImg.setAttribute("alt","fimawork Logo");
-    thisImg.src="https://cdn.jsdelivr.net/gh/Fimawork/threejs_tools/fimawork_logo_white.png";
+    thisImg.src="https://cdn.jsdelivr.net/gh/Fimawork/threejs_tools/images/fimawork_logo_white.png";
     div_logo_wrapper.append( thisImg );
 
     let div_logo_text = document.createElement("div");
