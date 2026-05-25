@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { TIFFLoader } from 'three/addons/loaders/TIFFLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { UltraHDRLoader } from 'three/addons/loaders/UltraHDRLoader.js';
+//import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
@@ -933,6 +934,18 @@ export function LoadHDRWithPMREM(hdr_src,thisScene,thisRenderer)
         texture.dispose();
         pmrem.dispose();
     
+    } );
+}
+
+export function LoadUltraHDRForWebGPU(hdr_src,thisScene) 
+{
+    new UltraHDRLoader()
+        .load( hdr_src, function ( texture ) {
+
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        //scene.background = texture;
+        thisScene.environment = texture;
+
     } );
 }
 
