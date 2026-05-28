@@ -41,7 +41,7 @@ export function InstLoadingEffect_Type_A(show)
         if (!target) return;
 
         // 1. 用 CSS 讓透明度在 0.2 秒內平滑過渡
-        target.style.transition = "opacity 0.2s ease";
+        target.style.transition = "opacity 1s ease";
         target.style.opacity = "0";
 
         let called = false;
