@@ -55,7 +55,7 @@ export function InstLoadingEffect_Type_A(show)
         target.addEventListener("transitionend", onEnd, { once: true });
             
         // 保險狀況：如果 250 毫秒後（比動畫的 0.2s 稍長）動畫沒觸發，強行刪除
-        setTimeout(onEnd, 250);
+        setTimeout(onEnd, 1050);
     }
     
 }
