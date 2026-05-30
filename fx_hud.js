@@ -83,6 +83,7 @@ export function InstLoadingEffect_Type_B(show)
             left:'50%',
             marginLeft: '-40px', // 寬度的一半 (80 / 2)
             marginTop: '-40px',  // 高度的一半 (80 / 2)
+            zIndex: '99',
             transition: 'opacity 0.3s ease' // 統一修正轉場時間為 0.3 秒
         });
       
