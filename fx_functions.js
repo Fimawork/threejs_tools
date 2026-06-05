@@ -1184,7 +1184,7 @@ export function InitWebGPUShadow(scene, customSetting = {})
     shadowGroup.position.y = 0;
     scene.add( shadowGroup );
 
-    renderTarget = new THREE.RenderTarget( 2048, 2048, { depthBuffer: true } );
+    renderTarget = new THREE.RenderTarget( 512, 512, { depthBuffer: true } );
     renderTarget.texture.generateMipmaps = false;
 
     // 【核心關鍵】加入這兩行，讓貼圖放大時自動進行平滑漸層模糊，打碎網格
@@ -1207,7 +1207,7 @@ export function InitWebGPUShadow(scene, customSetting = {})
     shadowPlaneMaterial.depthWrite = false;
 
     // 完美發揮 WebGPU 原生高斯模糊
-    const blurredShadow = gaussianBlur( texture( renderTarget.texture ), shadow_setting.shadow.blur, 16, { premultipliedAlpha: false } );
+    const blurredShadow = gaussianBlur( texture( renderTarget.texture ), shadow_setting.shadow.blur, 8, { premultipliedAlpha: false } );
     shadowPlaneMaterial.colorNode = vec3( 0 );
     shadowPlaneMaterial.opacityNode = blurredShadow.a.mul( shadow_setting.shadow.opacity );
 
@@ -1267,7 +1267,7 @@ export function UpdateWebGPUShadow(renderer, scene, mainCamera)
     fillPlane.visible = true;
 
     // 執行第二階段：正常渲染主畫面到螢幕上
-    renderer.render( scene, mainCamera || camera );
+    //renderer.render( scene, mainCamera || camera );
 }
 
 
