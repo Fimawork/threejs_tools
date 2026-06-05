@@ -7,6 +7,11 @@ import { UltraHDRLoader } from 'three/addons/loaders/UltraHDRLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+
+// WebGPU 影子工具
+import { vec3, uniform, texture, depth, float } from 'three/tsl';
+import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
+
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let targetPosition=null;
@@ -1109,25 +1114,160 @@ export async function WaitUntilWithTimeout(conditionFn, timeout = 5, checkInterv
 }
 
 //使用範例(若要修改傳入參數，以秒為單位)
-//let isDataLoaded=false;
-//
-//async function test()
-//{
-//	_test_words.textContent = `開始`;
-//	await FX.WaitUntilWithTimeout(() => isDataLoaded === true); 
-//	_test_words.textContent = `結束`;
-//}
-//
-//// 模擬 4.9 秒後資料載入完成
-//setTimeout(() => { isDataLoaded = true; }, 4900);
-//
-//test();
+/*
+let isDataLoaded=false;
+
+async function test()
+{
+	_test_words.textContent = `開始`;
+	await FX.WaitUntilWithTimeout(() => isDataLoaded === true); 
+	_test_words.textContent = `結束`;
+}
+
+// 模擬 4.9 秒後資料載入完成
+setTimeout(() => { isDataLoaded = true; }, 4900);
+
+test();*/
 
 // 範例：等待某個變數變成 true，設定超時為 10 秒，每 0.1秒 檢查一次
-//await WaitUntilWithTimeout(
-//    () => window.someDataLoaded === true, 
-//    10, // 這是新的 timeout (10秒)
-//    0.1    // 這是新的 checkInterval (100ms)
-//);
+/*
+await WaitUntilWithTimeout(
+    () => window.someDataLoaded === true, 
+    10, // 這是新的 timeout (10秒)
+    0.1    // 這是新的 checkInterval (100ms)
+);
+*/
+
+//影子工具
+let shadowCamera, shadowGroup;
+let renderTarget;
+let plane, fillPlane, cameraHelper;
+let depthMaterial, shadowPlaneMaterial, fillPlaneMaterial;
+
+export let shadow_setting = {
+    shadow: { blur: 1, darkness: 0.1, opacity: 1 },
+    plane: { color: '#ffffff', opacity: 1 },
+    showWireframe: false
+};
+
+let PLANE_WIDTH = 100;
+let PLANE_HEIGHT = 100;
+let CAMERA_HEIGHT = 50;//必須高於模型，否則看不到
+
+
+//若要修改必須設定在InitWebGPUShadow之前
+export function UpdateShadowSpcaceSize( ground_width, ground_height, camera_height)
+{
+    PLANE_WIDTH = ground_width;
+    PLANE_HEIGHT = ground_height;
+    CAMERA_HEIGHT = camera_height;
+}
+
+// 客製化方法
+/* 
+InitWebGPUShadow(scene, {
+     shadow: { blur: 2.5, darkness: 0.05 },
+     plane: { color: '#000000', opacity: 0.5 }
+});
+
+*/ 
+
+export function InitWebGPUShadow(scene, customSetting = {}) 
+{	
+
+    // 【核心關鍵】將外部傳進來的自訂設定，融合/覆寫到預設的 shadow_setting 中
+    if (customSetting.shadow) Object.assign(shadow_setting.shadow, customSetting.shadow);
+    if (customSetting.plane) Object.assign(shadow_setting.plane, customSetting.plane);
+    if (customSetting.hasOwnProperty('showWireframe')) shadow_setting.showWireframe = customSetting.showWireframe;
+
+    shadowGroup = new THREE.Group();
+    shadowGroup.position.y = 0;
+    scene.add( shadowGroup );
+
+    renderTarget = new THREE.RenderTarget( 2048, 2048, { depthBuffer: true } );
+    renderTarget.texture.generateMipmaps = false;
+
+    // 【核心關鍵】加入這兩行，讓貼圖放大時自動進行平滑漸層模糊，打碎網格
+    renderTarget.texture.minFilter = THREE.LinearFilter;
+    renderTarget.texture.magFilter = THREE.LinearFilter;
+
+    const planeGeometry = new THREE.PlaneGeometry( PLANE_WIDTH, PLANE_HEIGHT ).rotateX( Math.PI / 2 );
+
+    // 1. 深度材質（TSL 版本）
+    depthMaterial = new THREE.NodeMaterial();
+    const alphaDepth = float( 1 ).sub( depth ).mul( shadow_setting.shadow.darkness );
+    depthMaterial.colorNode = vec3( 0 );
+    depthMaterial.opacityNode = alphaDepth;
+    depthMaterial.depthTest = false;
+    depthMaterial.depthWrite = false;
+
+    // 2. 模糊影子地板材質（TSL 版本）
+    shadowPlaneMaterial = new THREE.NodeMaterial();
+    shadowPlaneMaterial.transparent = true;
+    shadowPlaneMaterial.depthWrite = false;
+
+    // 完美發揮 WebGPU 原生高斯模糊
+    const blurredShadow = gaussianBlur( texture( renderTarget.texture ), shadow_setting.shadow.blur, 16, { premultipliedAlpha: false } );
+    shadowPlaneMaterial.colorNode = vec3( 0 );
+    shadowPlaneMaterial.opacityNode = blurredShadow.a.mul( shadow_setting.shadow.opacity );
+
+    plane = new THREE.Mesh( planeGeometry, shadowPlaneMaterial );
+    plane.renderOrder = 1;
+    plane.scale.y = - 1;
+    plane.scale.z = - 1;
+    shadowGroup.add( plane );
+
+    // 3. 地板底色補色面
+    fillPlaneMaterial = new THREE.NodeMaterial();
+    fillPlaneMaterial.transparent = true;
+    fillPlaneMaterial.depthWrite = false;
+    fillPlaneMaterial.colorNode = new THREE.Color( shadow_setting.plane.color );
+    fillPlaneMaterial.opacityNode = shadow_setting.plane.opacity;
+    fillPlane = new THREE.Mesh( planeGeometry, fillPlaneMaterial );
+    fillPlane.rotateX( Math.PI );
+    shadowGroup.add( fillPlane );
+
+    // 4. 正投影影子相機
+    shadowCamera = new THREE.OrthographicCamera( - PLANE_WIDTH / 2, PLANE_WIDTH / 2, PLANE_HEIGHT / 2, - PLANE_HEIGHT / 2, 0, CAMERA_HEIGHT );
+    shadowCamera.rotation.x = Math.PI / 2;
+    shadowGroup.add( shadowCamera );
+}
+
+
+export function UpdateWebGPUShadow(renderer, scene, mainCamera) 
+{
+    // 【優化】後台錄製前，先隱藏影子地板與補色地板，避免自己拍到自己
+    plane.visible = false;
+    fillPlane.visible = false;
+    
+    const initialBackground = scene.background;
+    scene.background = null;
+
+    const prevOverride = scene.overrideMaterial;
+    scene.overrideMaterial = depthMaterial;
+
+    const initialAutoClear = renderer.autoClear;
+    renderer.autoClear = true;
+
+    const initialClearAlpha = renderer.getClearAlpha ? renderer.getClearAlpha() : undefined;
+    if ( initialClearAlpha !== undefined ) renderer.setClearAlpha( 0 );
+
+    // 執行第一階段：渲染影子深度
+    renderer.setRenderTarget( renderTarget );
+    renderer.clear();
+    renderer.render( scene, shadowCamera );
+
+    scene.overrideMaterial = prevOverride;
+    renderer.setRenderTarget( null );
+    renderer.autoClear = initialAutoClear;
+    if ( initialClearAlpha !== undefined ) renderer.setClearAlpha( initialClearAlpha );
+    scene.background = initialBackground;
+
+    plane.visible = true;
+    fillPlane.visible = true;
+
+    // 執行第二階段：正常渲染主畫面到螢幕上
+    renderer.render( scene, mainCamera || camera );
+}
 
 
