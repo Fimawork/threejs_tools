@@ -12,6 +12,9 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import { vec3, uniform, texture, depth, float } from 'three/tsl';
 import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
 
+//轉USDZ檔案格式工具
+import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
+
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let targetPosition=null;
@@ -1270,4 +1273,38 @@ export function UpdateWebGPUShadow(renderer, scene, mainCamera)
     //renderer.render( scene, mainCamera || camera );
 }
 
+
+export async function USDZ_Exporter(scene)
+{
+    // 1. 定義你的 USDZ 檔案路徑與下載名稱
+    const usdzUrl = '';
+    const downloadName = 'asset.usdz';
+
+    // 2. 在記憶體中動態建立 <a> 標籤
+    const link = document.createElement('a');
+    
+    // 3. 設定與你 HTML 對應的屬性值
+    link.id = 'link';
+    link.setAttribute('rel', 'ar');         // 💡 喚起蘋果 AR 的靈魂屬性
+    link.setAttribute('href', usdzUrl);      // 檔案路徑
+    link.setAttribute('download', downloadName); // 提示瀏覽器下載時的檔名
+
+    const params = 
+    {
+	    exportUSDZ: function() 
+        {
+            link.click();
+        }
+    };
+
+    const exporter = new USDZExporter();
+	const arraybuffer =  await exporter.parseAsync( scene );
+	const blob = new Blob( [ arraybuffer ], { type: 'application/octet-stream' } );		
+	link.href = URL.createObjectURL( blob );
+
+	const gui = new GUI();
+
+	gui.add( params, 'exportUSDZ' ).name( 'Export USDZ' );
+	gui.open();
+}
 
