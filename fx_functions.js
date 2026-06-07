@@ -738,9 +738,11 @@ const param_ = {
     opacity:1
 };
 
-export function Material_Inspector(thisScene)
+//以Mesh名稱搜尋材質球
+export function Material_Inspector(thisScene) 
 {
     const gui = new GUI();
+    gui.title('材質檢查器A');
 
     let material= new THREE.MeshPhysicalMaterial( {
 		color: 0xffffff, metalness: 0.25, roughness: 0, transmission: 1.0
@@ -811,40 +813,41 @@ export function Material_Inspector(thisScene)
 
         sub_gui = new GUI();
         sub_gui.domElement.style.top = '53px';
-        const basicGui = sub_gui.addFolder("Basic Parameter");
+        sub_gui.title(`屬性調整: ${item.name}`);
+        const basicGui = sub_gui.addFolder("基礎參數 (Basic)");
 
         basicGui.addColor({ color: material.color.getHex() }, 'color')
-        .name('Color')
+        .name('顏色 (Color)')
         .onChange(v => material.color.set(v));
 
-        if(material.roughness!=null)basicGui.add(material, 'roughness', 0, 1 );
-        if(material.metalness!=null)basicGui.add(material, 'metalness', 0, 1 );
-        if(material.transmission!=null)basicGui.add(material, 'transmission', 0, 1 );
-        if(material.ior!=null)basicGui.add(material, 'ior', 1, 2.4 );
-        if(material.reflectivity!=null)basicGui.add(material, 'reflectivity', 0, 1 );
-        if(material.transparent!=null)basicGui.add(material, 'transparent');
-        if(material.opacity!=null)basicGui.add(material, 'opacity', 0, 1, 0.01);
-        if(material.depthWrite!=null)basicGui.add(material, 'depthWrite');
+        if(material.roughness!=null)basicGui.add(material, 'roughness', 0, 1 ).name('粗糙度 (Roughness)');;
+        if(material.metalness!=null)basicGui.add(material, 'metalness', 0, 1 ).name('金屬度 (Metalness)');
+        if(material.transmission!=null)basicGui.add(material, 'transmission', 0, 1 ).name('穿透度 (Transmission)');
+        if(material.ior!=null)basicGui.add(material, 'ior', 1, 2.4 ).name('折射率 (IOR)');
+        if(material.reflectivity!=null)basicGui.add(material, 'reflectivity', 0, 1 ).name('反射率 (Reflectivity)');
+        if(material.transparent!=null)basicGui.add(material, 'transparent').name('透明開啟 (Transparent)');
+        if(material.opacity!=null)basicGui.add(material, 'opacity', 0, 1, 0.01).name('不透明度 (Opacity)');
+        if(material.depthWrite!=null)basicGui.add(material, 'depthWrite').name('深度寫入 (DepthWrite)');
 
         if(material.map!=null)
         {
             const map_texture=material.map;
             const mapGui = sub_gui.addFolder("Map Parameter");
-            mapGui.add(map_texture.repeat, "x", 0, 2000, 0.1).name("repeat X").onChange(() => map_texture.needsUpdate = true);
-            mapGui.add(map_texture.repeat, "y", 0, 2000, 0.1).name("repeat Y").onChange(() => map_texture.needsUpdate = true);
-            mapGui.add(map_texture.offset, "x", -1, 1, 0.01).name("offset X").onChange(() => map_texture.needsUpdate = true);
-            mapGui.add(map_texture.offset, "y", -1, 1, 0.01).name("offset Y").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.repeat, "x", 0, 2000, 0.1).name("平鋪 X (Repeat)").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.repeat, "y", 0, 2000, 0.1).name("平鋪 Y (Repeat)").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.offset, "x", -1, 1, 0.01).name("偏移 X (Offset)").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.offset, "y", -1, 1, 0.01).name("偏移 Y (Offset)").onChange(() => map_texture.needsUpdate = true);
         }
 
         if(material.bumpMap!=null)
         {
             const bumpMap_texture=material.bumpMap;
-            const bumpMapGui = sub_gui.addFolder("BumpMap Parameter");
-            bumpMapGui.add(bumpMap_texture.repeat, "x", 0, 2000, 0.1).name("repeat X").onChange(() => bumpMap_texture.needsUpdate = true);
-            bumpMapGui.add(bumpMap_texture.repeat, "y", 0, 2000, 0.1).name("repeat Y").onChange(() => bumpMap_texture.needsUpdate = true);
-            bumpMapGui.add(bumpMap_texture.offset, "x", -1, 1, 0.01).name("offset X").onChange(() => bumpMap_texture.needsUpdate = true);
-            bumpMapGui.add(bumpMap_texture.offset, "y", -1, 1, 0.01).name("offset Y").onChange(() => bumpMap_texture.needsUpdate = true);
-            bumpMapGui.add(material, "bumpScale", -100, 100, 0.01).name("bumpScale").onChange(() => bumpMap_texture.needsUpdate = true);
+            const bumpMapGui = sub_gui.addFolder("凹凸貼圖 (BumpMap Parameter)");
+            bumpMapGui.add(bumpMap_texture.repeat, "x", 0, 2000, 0.1).name("平鋪 X (Repeat)").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.repeat, "y", 0, 2000, 0.1).name("平鋪 Y (Repeat)").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.offset, "x", -1, 1, 0.01).name("偏移 X (Offset)").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.offset, "y", -1, 1, 0.01).name("偏移 Y (Offset)").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(material, "bumpScale", -100, 100, 0.01).name("凹凸強度").onChange(() => bumpMap_texture.needsUpdate = true);
         }
 
 
@@ -856,10 +859,8 @@ export function Material_Inspector(thisScene)
 
                 // 調用剪貼簿 API
                 navigator.clipboard.writeText(etchingMaterial_data).then(() => {
-                    console.log('座標已複製到剪貼簿:', etchingMaterial_data);
-
                     // 選做：給使用者一點視覺回饋
-                    alert('座標已複製！\n' + etchingMaterial_data);
+                    alert('【蝕刻材質參數已複製】\n' + etchingMaterial_data);
                 }).catch(err => {
                     console.error('複製失敗', err);
                 });
@@ -871,10 +872,8 @@ export function Material_Inspector(thisScene)
 
             // 調用剪貼簿 API
             navigator.clipboard.writeText(material_data).then(() => {
-                console.log('座標已複製到剪貼簿:', material_data);
-
                 // 選做：給使用者一點視覺回饋
-                alert('座標已複製！\n' + material_data);
+                alert('【基礎材質參數已複製】\n' + material_data);
             }).catch(err => {
                 console.error('複製失敗', err);
             });
@@ -883,6 +882,227 @@ export function Material_Inspector(thisScene)
 
         sub_gui.add( params, 'copyEtchingMaterialData' ).name('Copy Params for InstEtchingMaterial');
         sub_gui.add( params, 'copyMaterialData' ).name('Copy Params for InstMaterial');
+    }
+}
+
+//材質球名稱搜尋Mesh
+export function Material_Inspector_TypeB(thisScene) 
+{
+    const mainGui = new GUI();
+    mainGui.title('材質檢查器B');
+
+    // 🌟 用 Map 儲存不重複的材質，Key 是材質名稱(或UUID)，Value 是材質物件本身
+    let material_map = new Map();
+
+    // 1. 遍歷整個場景，搜集所有 Mesh 身上帶的材質球
+    thisScene.traverse((child) => {
+        if (child.isMesh && child.material) {
+            // 如果一個 Mesh 套用多個材質(Material Array)，一併處理
+            if (Array.isArray(child.material)) {
+                child.material.forEach(mat => {
+                    if (mat.name && mat.name !== "") {
+                        material_map.set(mat.name, mat);
+                    }
+                });
+            } else {
+                if (child.material.name && child.material.name !== "") {
+                    material_map.set(child.material.name, child.material);
+                }
+            }
+        }
+    });
+
+    // 將收集到的材質球名稱轉為陣列列表
+    let material_name_list = Array.from(material_map.keys());
+
+    // 防呆：如果場景內完全沒有命名的材質球，塞入一個預設提示
+    if (material_name_list.length === 0) {
+        console.warn("⚠️ 場景中未偵測到命名的材質球！");
+        return;
+    }
+
+    // 當前被選中的材質物件變數，預設選取列表中第一個
+    let currentMaterial = material_map.get(material_name_list[0]);
+    let selectorItem = { currentName: material_name_list[0] };
+
+    // 2. 建立主選擇下拉選單
+    mainGui.add(selectorItem, 'currentName', material_name_list)
+        .name('選擇材質球')
+        .onChange(function (selectedName) {
+            currentMaterial = material_map.get(selectedName);
+            UpdateContent(); // 當材質切換時，刷新下方的屬性面板
+        });
+
+    // 輔助函式：轉換顏色格式
+    function FetchHexColor(targetMaterial) {
+        if (!targetMaterial.color) return '0xFFFFFF';
+        const hex = targetMaterial.color.getHexString().toUpperCase();
+        return '0x' + hex;
+    }
+
+    // 輔助函式：防呆安全轉換路徑
+    function formatToRelativePath(src) {
+        if (!src) return "";
+        try {
+            const url = new URL(src);
+            return url.pathname; // 唯讀取相對路徑部分 (例如 /textures/carbon.png)
+        } catch (e) {
+            return src;
+        }
+    }
+
+    let sub_gui;
+    UpdateContent(); // 初始呼叫，生成第一個材質的面板
+
+    // 3. 動態渲染與更新材質屬性面板
+    function UpdateContent() {  
+        if (sub_gui) {
+            sub_gui.destroy(); // 清除上一個材質的面板
+        }
+
+        sub_gui = new GUI();
+        sub_gui.domElement.style.top = '53px';
+        sub_gui.title(`屬性調整: ${selectorItem.currentName}`);
+
+        const basicGui = sub_gui.addFolder("基礎參數 (Basic)");
+
+        // 顏色動態雙向綁定
+        basicGui.addColor({ color: currentMaterial.color ? currentMaterial.color.getHex() : 0xffffff }, 'color')
+            .name('顏色 (Color)')
+            .onChange(v => {
+                if (currentMaterial.color) currentMaterial.color.set(v);
+            });
+
+        // 數值安全性驗證與防呆綁定
+        if (currentMaterial.roughness !== undefined) basicGui.add(currentMaterial, 'roughness', 0, 1).name('粗糙度 (Roughness)');
+        if (currentMaterial.metalness !== undefined) basicGui.add(currentMaterial, 'metalness', 0, 1).name('金屬度 (Metalness)');
+        if (currentMaterial.transmission !== undefined) basicGui.add(currentMaterial, 'transmission', 0, 1).name('穿透度 (Transmission)');
+        if (currentMaterial.ior !== undefined) basicGui.add(currentMaterial, 'ior', 1, 2.4).name('折射率 (IOR)');
+        if (currentMaterial.reflectivity !== undefined) basicGui.add(currentMaterial, 'reflectivity', 0, 1).name('反射率 (Reflectivity)');
+        if (currentMaterial.transparent !== undefined) basicGui.add(currentMaterial, 'transparent').name('透明開啟 (Transparent)');
+        if (currentMaterial.opacity !== undefined) basicGui.add(currentMaterial, 'opacity', 0, 1, 0.01).name('不透明度 (Opacity)');
+        if (currentMaterial.depthWrite !== undefined) basicGui.add(currentMaterial, 'depthWrite').name('深度寫入 (DepthWrite)');
+
+        // 貼圖參數區 (Map)
+        if (currentMaterial.map && currentMaterial.map.image) {
+            const map_texture = currentMaterial.map;
+            const mapGui = sub_gui.addFolder("顏色貼圖 (Map Parameter)");
+            mapGui.add(map_texture.repeat, "x", 0, 2000, 0.1).name("平鋪 X (Repeat)").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.repeat, "y", 0, 2000, 0.1).name("平鋪 Y (Repeat)").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.offset, "x", -1, 1, 0.01).name("偏移 X (Offset)").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.offset, "y", -1, 1, 0.01).name("偏移 Y (Offset)").onChange(() => map_texture.needsUpdate = true);
+        }
+
+        // 凹凸貼圖參數區 (BumpMap)
+        if (currentMaterial.bumpMap && currentMaterial.bumpMap.image) {
+            const bumpMap_texture = currentMaterial.bumpMap;
+            const bumpMapGui = sub_gui.addFolder("凹凸貼圖 (BumpMap Parameter)");
+            bumpMapGui.add(bumpMap_texture.repeat, "x", 0, 2000, 0.1).name("平鋪 X (Repeat)").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.repeat, "y", 0, 2000, 0.1).name("平鋪 Y (Repeat)").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.offset, "x", -1, 1, 0.01).name("偏移 X (Offset)").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.offset, "y", -1, 1, 0.01).name("偏移 Y (Offset)").onChange(() => bumpMap_texture.needsUpdate = true);
+            if (currentMaterial.bumpScale !== undefined) {
+                bumpMapGui.add(currentMaterial, "bumpScale", -100, 100, 0.01).name("凹凸強度").onChange(() => bumpMap_texture.needsUpdate = true);
+            }
+        }
+
+        // 4. 複製參數行為定義
+        const params = {
+            copyEtchingMaterialData: function() {
+                // 讀取貼圖與凹凸圖數據，如果沒有則給予預設空值防呆
+                const mapSrc = (currentMaterial.map && currentMaterial.map.image) ? formatToRelativePath(currentMaterial.map.image.src) : "";
+                const mapRepX = currentMaterial.map ? currentMaterial.map.repeat.x : 1;
+                const mapRepY = currentMaterial.map ? currentMaterial.map.repeat.y : 1;
+                const mapOffX = currentMaterial.map ? currentMaterial.map.offset.x : 0;
+                const mapOffY = currentMaterial.map ? currentMaterial.map.offset.y : 0;
+
+                const bumpSrc = (currentMaterial.bumpMap && currentMaterial.bumpMap.image) ? formatToRelativePath(currentMaterial.bumpMap.image.src) : "";
+                const bumpRepX = currentMaterial.bumpMap ? currentMaterial.bumpMap.repeat.x : 1;
+                const bumpRepY = currentMaterial.bumpMap ? currentMaterial.bumpMap.repeat.y : 1;
+                const bumpScale = currentMaterial.bumpScale !== undefined ? currentMaterial.bumpScale : 0;
+
+                const etchingMaterial_data = `${FetchHexColor(currentMaterial)},${currentMaterial.roughness ?? 0},${currentMaterial.metalness ?? 0},${currentMaterial.reflectivity ?? 0.5},${currentMaterial.transparent ?? false},${currentMaterial.opacity ?? 1},"${mapSrc}",new THREE.Vector2(${mapRepX},${mapRepY}),new THREE.Vector2(${mapOffX},${mapOffY}),"${bumpSrc}",new THREE.Vector2(${bumpRepX},${bumpRepY}),${bumpScale}`;
+
+                navigator.clipboard.writeText(etchingMaterial_data).then(() => {
+                    alert('【蝕刻材質參數已複製】\n' + etchingMaterial_data);
+                }).catch(err => { console.error('複製失敗', err); });
+            },
+
+            copyMaterialData: function() {
+                const material_data = `${FetchHexColor(currentMaterial)},${currentMaterial.roughness ?? 0},${currentMaterial.metalness ?? 0},${currentMaterial.transmission ?? 0},${currentMaterial.ior ?? 1.5},${currentMaterial.reflectivity ?? 0.5},${currentMaterial.transparent ?? false},${currentMaterial.opacity ?? 1},${currentMaterial.depthWrite ?? true}`;
+
+                navigator.clipboard.writeText(material_data).then(() => {
+                    alert('【基礎材質參數已複製】\n' + material_data);
+                }).catch(err => { console.error('複製失敗', err); });
+            },
+
+            copyMaterialName: function() 
+            {
+                 const material_name = selectorItem.currentName;
+
+                // 調用剪貼簿 API
+                navigator.clipboard.writeText(material_name).then(() => {
+                console.log('材質球名稱已複製到剪貼簿:', material_name);
+
+                // 選做：給使用者一點視覺回饋
+                alert('材質球名稱已複製！\n' + material_name);
+                    }).catch(err => {
+                    console.error('複製失敗', err);
+                });
+            },
+        };
+
+        // 將按鈕加入面板底部
+        sub_gui.add(params, 'copyEtchingMaterialData').name('複製 InstEtchingMaterial 參數');
+        sub_gui.add(params, 'copyMaterialData').name('複製 InstMaterial 參數');
+        sub_gui.add(params, 'copyMaterialName').name('複製材質球名稱');
+    }
+}
+
+//利用名稱尋找目標材質球並替換
+export function ReplaceMaterial(thisScene, targetMaterialName, newMaterial) 
+{
+    let replaceCount = 0;
+
+    // 1. 安全防呆：確保傳入的新材質有被命名，方便未來追蹤
+    if (newMaterial && !newMaterial.name) {
+        newMaterial.name = `${targetMaterialName}_replaced`;
+    }
+
+    // 2. 遍歷整個場景，尋找正在使用目標材質的 Mesh
+    thisScene.traverse((child) => {
+        if (child.isMesh && child.material) {
+            
+            // 情況 A：Mesh 套用了多重材質陣列 (Material Array)
+            if (Array.isArray(child.material)) {
+
+                console.log(child.material);
+                child.material.forEach((mat, index) => {
+
+                    
+                    if (mat.name === targetMaterialName) {
+                        child.material[index] = newMaterial;
+                        replaceCount++;
+                    }
+                });
+            } 
+            // 情況 B：Mesh 使用單一標準材質
+            else {
+                if (child.material.name === targetMaterialName) {
+                    child.material = newMaterial;
+                    replaceCount++;
+                }
+            }
+        }
+    });
+
+    // 3. 回報替換結果
+    if (replaceCount > 0) {
+        console.log(`✅ [材質替換成功] 已將名為 "${targetMaterialName}" 的材質，成功替換為新材質 "${newMaterial.name}"，共影響 ${replaceCount} 個幾何表面。`);
+        return true;
+    } else {
+        console.warn(`⚠️ [材質替換警告] 在場景中沒有找到任何使用 "${targetMaterialName}" 的物件，未進行任何替換。`);
+        return false;
     }
 }
 
@@ -905,6 +1125,7 @@ const material_param = {
     opacity:1
 };
 
+//切換WebGPU架構後失去準確性，棄用
 export function WebGLInspector(thisContainer, thisRenderer)
 {
     thisContainer.appendChild(stats.dom);
@@ -1273,7 +1494,7 @@ export function UpdateWebGPUShadow(renderer, scene, mainCamera)
     //renderer.render( scene, mainCamera || camera );
 }
 
-
+//USDZ生成工具
 export async function USDZ_Exporter(scene)
 {
     // 1. 定義你的 USDZ 檔案路徑與下載名稱
@@ -1307,4 +1528,5 @@ export async function USDZ_Exporter(scene)
 	gui.add( params, 'exportUSDZ' ).name( 'Export USDZ' );
 	gui.open();
 }
+
 
