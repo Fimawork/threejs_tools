@@ -12,8 +12,9 @@ import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import { vec3, uniform, texture, depth, float } from 'three/tsl';
 import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
 
-//轉USDZ檔案格式工具
+//轉USDZ&GLB檔案格式工具
 import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 import Stats from 'three/addons/libs/stats.module.js';
 
@@ -1495,38 +1496,50 @@ export function UpdateWebGPUShadow(renderer, scene, mainCamera)
 }
 
 //USDZ生成工具
-export async function USDZ_Exporter(scene)
+export async function USDZ_GLB_Exporter(scene)
 {
-    // 1. 定義你的 USDZ 檔案路徑與下載名稱
-    const usdzUrl = '';
-    const downloadName = 'asset.usdz';
+   // 統一的純檔案下載函式
+    function downloadFile(buffer, filename) {
+        const blob = new Blob([buffer], { type: 'application/octet-stream' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename; // 確保只是純下載
+        link.click();
+        
+        // 釋放記憶體
+        URL.revokeObjectURL(link.href);
+    }
 
-    // 2. 在記憶體中動態建立 <a> 標籤
-    const link = document.createElement('a');
-    
-    // 3. 設定與你 HTML 對應的屬性值
-    link.id = 'link';
-    link.setAttribute('rel', 'ar');         // 💡 喚起蘋果 AR 的靈魂屬性
-    link.setAttribute('href', usdzUrl);      // 檔案路徑
-    link.setAttribute('download', downloadName); // 提示瀏覽器下載時的檔名
+    const params = {
+        // 1. 純下載 USDZ 檔案
+        exportUSDZ: async function() {
+            const exporterUSDZ = new USDZExporter();
+            const arraybufferUSDZ = await exporterUSDZ.parseAsync(scene); 
+            downloadFile(arraybufferUSDZ, 'asset.usdz');
+        },
 
-    const params = 
-    {
-	    exportUSDZ: function() 
-        {
-            link.click();
+        // 2. 純下載 GLB 檔案
+        exportGLB: function() {
+            const exporterGLB = new GLTFExporter();
+            exporterGLB.parse(
+                scene,
+                function (result) {
+                    downloadFile(result, 'asset.glb');
+                },
+                function (error) {
+                    console.error('GLB 匯出錯誤:', error);
+                },
+                { binary: true } // 輸出 GLB 必備
+            );
         }
     };
 
-    const exporter = new USDZExporter();
-	const arraybuffer =  await exporter.parseAsync( scene );
-	const blob = new Blob( [ arraybuffer ], { type: 'application/octet-stream' } );		
-	link.href = URL.createObjectURL( blob );
-
-	const gui = new GUI();
-
-	gui.add( params, 'exportUSDZ' ).name( 'Export USDZ' );
-	gui.open();
+    // 初始化 GUI
+    const gui = new GUI();
+    gui.title('模型生成器');
+    gui.add(params, 'exportUSDZ').name('Download USDZ');
+    gui.add(params, 'exportGLB').name('Download GLB');
+    gui.open();
 }
 
 
