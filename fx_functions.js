@@ -16,6 +16,9 @@ import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
 import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
+//提供UI元件應用
+import * as FXUI from 'https://cdn.jsdelivr.net/gh/Fimawork/threejs_tools@2.43/fx_hud.js';
+
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let targetPosition=null;
@@ -1543,3 +1546,133 @@ export async function USDZ_GLB_Exporter(scene)
 }
 
 
+//使用<model-viewer>
+//需插入標籤<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.3.1/model-viewer.min.js"></script>
+//或 import 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.3.1/model-viewer.min.js';
+export async function LoadXRSceneEvent(glb,usdz,placement,thisBtn)
+{
+    try {
+
+        thisBtn.disabled = true;//防重複連擊
+        FXUI.InstLoadingEffect_Type_B(true);
+
+        function ResetButton()
+        {
+            thisBtn.disabled = false;
+            FXUI.InstLoadingEffect_Type_B(false);
+        }
+
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+
+        // 1. 確保它是 Android 手機/平板，且瀏覽器底層支援 WebXR AR
+        const isAndroid = /android/i.test(userAgent);
+        const isAndroidAr = isAndroid && navigator.xr && typeof navigator.xr.isSessionSupported === 'function'
+        ? await navigator.xr.isSessionSupported('immersive-ar') 
+        : false;
+
+        // 2. 確保它是 iOS 手機/平板（iPhone/iPad），且支援 Apple AR Quick Look
+        const isIOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isSafariAr = isIOS && document.createElement('a').relList.supports('ar');
+
+        // 3. 偵測是否被困在 LINE / FB 等內建瀏覽器中
+        const isUAWithInApp = /Line|FBAN|FBAV|Instagram|MicroMessenger/i.test(userAgent);
+
+        // 🚨 終極嚴格判定：如果它「既不是支援 AR 的 Android 設備」而且「也不是支援 AR 的 iOS 設備」
+        if (!isAndroidAr && !isSafariAr) 
+        {
+            // 情境 A：如果是真正的手機，但卡在 LINE 內建瀏覽器
+            if (isUAWithInApp) 
+            {
+                if (isIOS) 
+                {
+                    alert("To launch the 3D spatial AR camera, please tap the '...' icon in the top right and select 'Open in Safari'.");
+                } 
+
+                else 
+                {
+                    // Android 強制跳出 LINE 到 Chrome
+                    const currentUrl = window.location.href.replace(/https?:\/\//, '');
+                    window.location.href = `intent://${currentUrl}#Intent;scheme=https;package=com.android.chrome;end;`;
+                }
+                ResetButton();
+                return; // 🎯 攔截，不准載入模型
+            }
+
+            // 情境 B：如果是 PC 電腦、Mac、或是完全不支援 AR 的舊手機
+            alert("Oops! Your current device or browser doesn't support augmented reality. For the best AR experience, please visit this page using Safari on iOS or Chrome on Android mobile devices.");
+    
+            // 【Fallback 業務擴充區】
+            // 如果是 PC 使用者，你也可以在這裡改開一個普通的 3D 彈窗給他看車，就不會開相機了
+            // openNormal3DModal();
+
+            ResetButton();
+            return; // 🎯 核心防禦：PC 點擊在這裡會被「一刀切斷」，Network 面板絕對不會出現 glb 請求！
+        }
+
+        // 🌟 1. 這裡必須加 await！讓兩者非同步平行/依序下載，並取得各自的加密 Blob 網址
+        const ghostGLB  = await GhostLinkFunction(glb);
+        const ghostUSDZ = await GhostLinkFunction(usdz);
+
+        // 🌟 2. 兩個記憶體網址都準備好了，開始動態建立標籤
+        const mv = document.createElement('model-viewer');
+        mv.src = ghostGLB;                                     // 餵入加密 GLB
+        mv.setAttribute('ios-src', `${ghostUSDZ}#canonicalWebPageURL=https://yourdomain.com`); // 餵入加密 USDZ + 防偷分享
+        mv.setAttribute('ar', '');
+        mv.setAttribute('ar-modes', 'scene-viewer quick-look webxr');
+        mv.setAttribute('ar-placement', placement);
+
+        // 讓標籤在網頁上隱形
+        Object.assign(mv.style, { position: 'fixed', width: '0px', height: '0px', opacity: '0' });
+        document.body.appendChild(mv);
+
+        // 🌟 3. 標籤載入記憶體完成後，立刻一擊入魂開啟相機
+        mv.addEventListener('load', () => {
+            
+            ResetButton();
+
+            if (mv.canActivateAR) {
+                mv.activateAR();
+            } else {
+                alert("您的裝置不支援空間 AR 展示");
+                mv.remove();
+            }
+        });
+
+        // 🌟 4. 防禦機制：使用者關閉 AR 相機回到網頁時，自動銷毀標籤，並作廢記憶體網址（極度安全）
+        mv.addEventListener('ar-status', (event) => {
+            if (event.detail.status === 'not-presenting') {
+
+                mv.remove();
+                URL.revokeObjectURL(ghostGLB);  // 釋放記憶體，網址當場報廢
+                URL.revokeObjectURL(ghostUSDZ); // 釋放記憶體，網址當場報廢
+            }
+        });
+
+    } catch (error) {
+        alert("AR 核心引擎啟動失敗");
+    }
+}
+
+
+export async function GhostLinkFunction(target) {
+    try {
+        const response = await fetch(target);
+        if (!response.ok) throw new Error("檔案載入失敗");
+        const arrayBuffer = await response.arrayBuffer();
+
+        // 🌟 修正：自動根據副檔名判定 Mime Type，防止 Android/iOS 混淆
+        let mimeType = 'model/gltf-binary'; // 預設為 GLB 格式
+        if (target.includes('.usdz')) {
+            mimeType = 'model/vnd.usdz+zip'; // 如果是 usdz 則改為 iOS 格式
+        }
+
+        const blob = new Blob([arrayBuffer], { type: mimeType });
+        const ghostURL = URL.createObjectURL(blob);
+
+        return ghostURL; // 正確回傳字串
+
+    } catch (e) {
+        console.error(e);
+        throw e; // 拋出錯誤讓外部 catch 捕捉
+    }
+}
