@@ -1594,6 +1594,7 @@ export async function LoadXRSceneEvent(glb,usdz,placement,thisBtn)
                     const currentUrl = window.location.href.replace(/https?:\/\//, '');
                     window.location.href = `intent://${currentUrl}#Intent;scheme=https;package=com.android.chrome;end;`;
                 }
+                
                 ResetButton();
                 return; // 🎯 攔截，不准載入模型
             }
@@ -1604,6 +1605,8 @@ export async function LoadXRSceneEvent(glb,usdz,placement,thisBtn)
             // 【Fallback 業務擴充區】
             // 如果是 PC 使用者，你也可以在這裡改開一個普通的 3D 彈窗給他看車，就不會開相機了
             // openNormal3DModal();
+
+            InstARQRModal.Show(window.location.href);//提供QR CODE
 
             ResetButton();
             return; // 🎯 核心防禦：PC 點擊在這裡會被「一刀切斷」，Network 面板絕對不會出現 glb 請求！
@@ -1676,3 +1679,133 @@ export async function GhostLinkFunction(target) {
         throw e; // 拋出錯誤讓外部 catch 捕捉
     }
 }
+
+export const InstARQRModal = {
+    // 內部狀態，用來確保不重複初始化
+    isInitialized: false,
+
+    // 1. 自動注入 CSS 與 HTML 結構
+    init() {
+        if (this.isInitialized) return;
+
+        // 🌟 注入 CSS 樣式 (契合 Siri 霓虹暗色調)
+        const style = document.createElement('style');
+        style.textContent = `
+            .qr-modal {
+                display: none; 
+                position: fixed;
+                z-index: 99999; /* 確保壓在最上層 */
+                left: 0; top: 0; width: 100vw; height: 100vh;
+                background-color: rgba(10, 11, 22, 0.65);
+                backdrop-filter: blur(15px);
+                -webkit-backdrop-filter: blur(15px); /* 相容 Safari */
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            }
+            .qr-modal.active {
+                display: flex;
+                opacity: 1;
+            }
+            .qr-modal-content {
+                background: rgba(20, 21, 38, 0.9);
+                color: #ffffff;
+                padding: 35px 30px;
+                border-radius: 24px;
+                width: 90%; max-width: 380px;
+                text-align: center;
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                transform: scale(0.9);
+                transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            .qr-modal.active .qr-modal-content {
+                transform: scale(1);
+            }
+            .qr-modal-content h3 { 
+                margin: 0 0 12px 0; 
+                color: #00f0ff; 
+                font-size: 20px;
+                letter-spacing: 0.5px;
+            }
+            .qr-modal-content p { 
+                font-size: 13.5px; 
+                color: #b0b3c6; 
+                line-height: 1.6; 
+                margin: 0 0 20px 0;
+            }
+            .qr-close {
+                position: absolute;
+                top: 15px; right: 20px;
+                font-size: 28px; font-weight: 300; 
+                color: #8e92a7; cursor: pointer;
+                line-height: 1;
+                transition: color 0.2s ease;
+            }
+            .qr-close:hover { color: #ffffff; }
+            .qr-code-placeholder {
+                background: #ffffff; 
+                padding: 16px; 
+                border-radius: 16px;
+                display: inline-block;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            }
+            .qr-code-placeholder img { 
+                width: 180px; height: 180px; 
+                display: block; 
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 🌟 注入 HTML 結構
+        const modalHtml = `
+            <div id="qrModal" class="qr-modal">
+                <div class="qr-modal-content">
+                    <span class="qr-close">&times;</span>
+                    <p>We detected that you are currently browsing on a computer. Please scan the QR Code below with your <b>iPhone (Safari)</b> or <b>Android (Chrome)</b> camera to view the <b>interactive AR effects</b> on your phone!</p>
+                    <div class="qr-code-placeholder">
+                        <img id="qrImage" src="" alt="Scan for AR">
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // 🌟 綁定關閉事件
+        const modal = document.getElementById("qrModal");
+        const closeBtn = modal.querySelector(".qr-close");
+
+        closeBtn.onclick = () => this.Hide();
+        
+        // 點擊磨砂玻璃背景也能關閉
+        modal.onclick = (e) => {
+            if (e.target === modal) this.Hide();
+        };
+
+        this.isInitialized = true;
+    },
+
+    // 2. 顯示彈窗（外部呼叫）
+    Show(thisLink) {
+        if (!this.isInitialized) this.init();
+
+        const modal = document.getElementById("qrModal");
+        const qrImage = document.getElementById("qrImage");
+
+        // 即時抓取當前網址，並利用免費 API 生成 QR Code
+        const currentEncodedUrl = encodeURIComponent(thisLink);
+        qrImage.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${currentEncodedUrl}`;
+
+        // 動畫顯示
+        modal.classList.add("active");
+    },
+
+    // 3. 隱藏彈窗
+    Hide() {
+        const modal = document.getElementById("qrModal");
+        if (modal) {
+            modal.classList.remove("active");
+        }
+    }
+};
