@@ -1551,107 +1551,148 @@ export async function USDZ_GLB_Exporter(scene)
 //或 import 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.3.1/model-viewer.min.js';
 export async function LoadXRSceneEvent(glb,usdz,placement,thisBtn)
 {
-    // 預先建立標籤（用來立刻承接使用者點擊手勢，解決 WebXR 安全性限制）
-    const mv = document.createElement('model-viewer');
-    let ghostGLB = null;
-    let ghostUSDZ = null;
-
-    function ResetButton() {
-        thisBtn.disabled = false;
-        FXUI.InstLoadingEffect_Type_B(false);
-    }
-
-    // 清理資源的輔助函式（防止漏網之魚造成的 Memory Leak）
-    function cleanupResources() {
-        if (mv) mv.remove();
-        if (ghostGLB) { URL.revokeObjectURL(ghostGLB); ghostGLB = null; }
-        if (ghostUSDZ) { URL.revokeObjectURL(ghostUSDZ); ghostUSDZ = null; }
-    }
-
     try {
-        thisBtn.disabled = true; // 防重複連擊
+
+        thisBtn.disabled = true;//防重複連擊
+
         FXUI.InstLoadingEffect_Type_B(true);
+
+        function ResetButton()
+        {
+            thisBtn.disabled = false;
+            FXUI.InstLoadingEffect_Type_B(false);
+        }
 
         const userAgent = navigator.userAgent || navigator.vendor || window.opera;
 
-        // 1. 偵測環境
-        const supportsWebXRAr = navigator.xr && typeof navigator.xr.isSessionSupported === 'function'
-            ? await navigator.xr.isSessionSupported('immersive-ar') 
-            : false;
-            
+        // 1. 【核心修改】獨立偵測瀏覽器底層是否支援 WebXR AR（不論它是 Android 還是 Quest 眼鏡）
+        const supportsWebXRAr = navigator.xr && typeof navigator.xr.isSessionSupported === 'function'? await navigator.xr.isSessionSupported('immersive-ar'):false;
+
+        // 2. 確保它是 Android 手機/平板
         const isAndroid = /android/i.test(userAgent);
+
+        // 3. 確保它是 iOS 裝置（iPhone/iPad）且支援 Apple AR Quick Look
         const isIOS = /iPad|iPhone|iPod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const isSafariAr = isIOS && document.createElement('a').relList.supports('ar');
+
+        // 4. 偵測是否被困在 LINE / FB 等內建瀏覽器中
         const isUAWithInApp = /Line|FBAN|FBAV|Instagram|MicroMessenger/i.test(userAgent);
 
-        // 2. 嚴格安全攔截
-        if (!supportsWebXRAr && !isSafariAr) {
-            if (isUAWithInApp) {
-                if (isIOS) {
+        // 5. 偵測是否為 Meta Quest 裝置 (包含 Quest 2/3/Pro)
+
+        const isQuest = /Quest/i.test(userAgent);
+
+        // 🚨 【終極嚴格判定修正】：只要「支援 WebXR AR」或者「支援 iOS Safari AR」，就放行！
+
+        if (!supportsWebXRAr && !isSafariAr)
+        {
+            // 情境 A：如果是真正的手機，但卡在 LINE 內建瀏覽器
+            if (isUAWithInApp)
+            {
+                if (isIOS)
+                {
                     alert("To launch the 3D spatial AR camera, please tap the '...' icon in the top right and select 'Open in Safari'.");
-                } else {
+                }
+
+                else
+                {
+                    // Android 強制跳出 LINE 到 Chrome
                     const currentUrl = window.location.href.replace(/https?:\/\//, '');
                     window.location.href = `intent://${currentUrl}#Intent;scheme=https;package=com.android.chrome;end;`;
                 }
+
                 ResetButton();
-                return;
+
+                return; // 🎯 攔截
             }
 
-            alert("Oops! Your current device or browser doesn't support augmented reality. For the best AR experience, please visit this page using Safari on iOS or Chrome on Android devices.");
-            InstARQRModal.Show(window.location.href);
+       
+
+            // 情境 B：真正的 PC 電腦、Mac、或是完全不支援 AR 的舊手機
+
+            alert("Oops! Your current device or browser doesn't support augmented reality. For the best AR experience, please visit this page using Safari on iOS or Chrome on Android mobile devices.");
+
+            InstARQRModal.Show(window.location.href); // 提供 QR CODE
+
             ResetButton();
-            return;
+
+            return; // 🎯 一刀切斷
+
         }
 
-        // 3. 【優化：智慧分流下載】依據裝置平台，只下載需要的模型，節省頻寬與等待時間
-        if (isIOS) {
-            ghostUSDZ = await GhostLinkFunction(usdz);
-            mv.setAttribute('ios-src', `${ghostUSDZ}#canonicalWebPageURL=https://yourdomain.com`);
-        } else {
-            // Android 或 Quest 等 WebXR 裝置只需要 GLB
-            ghostGLB = await GhostLinkFunction(glb);
-            mv.src = ghostGLB;
-        }
 
-        // 4. 設定 model-viewer 屬性 (將 webxr 提到最前面)
+
+        // 🌟 1. 這裡必須加 await！讓兩者非同步平行/依序下載，並取得各自的加密 Blob 網址
+
+        const ghostGLB  = await GhostLinkFunction(glb);
+
+        const ghostUSDZ = await GhostLinkFunction(usdz);
+
+
+
+        // 🌟 2. 兩個記憶體網址都準備好了，開始動態建立標籤
+
+        const mv = document.createElement('model-viewer');
+
+        mv.src = ghostGLB;                                     // 餵入加密 GLB
+
+        mv.setAttribute('ios-src', `${ghostUSDZ}#canonicalWebPageURL=https://yourdomain.com`); // 餵入加密 USDZ + 防偷分享
+
         mv.setAttribute('ar', '');
-        mv.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
+
+        mv.setAttribute('ar-modes', 'scene-viewer quick-look webxr');
+
         mv.setAttribute('ar-placement', placement);
+
+
+
+        // 讓標籤在網頁上隱形
+
         Object.assign(mv.style, { position: 'fixed', width: '0px', height: '0px', opacity: '0' });
+
         document.body.appendChild(mv);
 
-        // 5. 【核心修正】不等待 load 事件，直接藉由當前點擊手勢激活 AR
-        // model-viewer 內部會自行處理「當 src 準備好後自動觸發 AR」
-        ResetButton();
-        
-        // 監聽錯誤事件，若模型載入失敗，立刻釋放資源
-        mv.addEventListener('error', (err) => {
-            alert("AR 模型載入失敗");
-            cleanupResources();
+
+
+        // 🌟 3. 標籤載入記憶體完成後，立刻一擊入魂開啟相機
+
+        mv.addEventListener('load', () => {
+
+            ResetButton();
+
+            if (mv.canActivateAR) 
+            {
+                mv.activateAR();
+            } 
+
+            else 
+            {
+                alert("您的裝置不支援空間 AR 展示");
+                mv.remove();
+            }
+
         });
 
-        // 啟動 AR
-        try {
-            await mv.activateAR();
-        } catch (arError) {
-            alert("您的裝置無法啟動空間 AR 展示");
-            cleanupResources();
-        }
 
-        // 6. 關閉 AR 回到網頁時銷毀標籤並報廢記憶體
+        // 🌟 4. 防禦機制：使用者關閉 AR 相機回到網頁時，自動銷毀標籤，並作廢記憶體網址（極度安全）
         mv.addEventListener('ar-status', (event) => {
+
             if (event.detail.status === 'not-presenting') {
-                cleanupResources();
+
+                mv.remove();
+                URL.revokeObjectURL(ghostGLB);  // 釋放記憶體，網址當場報廢
+                URL.revokeObjectURL(ghostUSDZ); // 釋放記憶體，網址當場報廢
+
             }
         });
 
-    } catch (error) {
+    } 
+    
+    catch (error) 
+    {
         alert("AR 核心引擎啟動失敗");
-        cleanupResources();
-        ResetButton();
     }
-}
-
+} 
 
 export async function GhostLinkFunction(target) {
     try {
