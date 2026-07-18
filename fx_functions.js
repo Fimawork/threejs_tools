@@ -7,6 +7,7 @@ import { UltraHDRLoader } from 'three/addons/loaders/UltraHDRLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 // WebGPU 影子工具
 import { vec3, uniform, texture, depth, float } from 'three/tsl';
@@ -1846,3 +1847,816 @@ export const InstARQRModal = {
         }
     }
 };
+
+/*
+Polygon Mesh+ReturnBufferGeometry加入某組合件，自身座標變為(0,0,0)，導致相對位置發生錯誤，
+可利用此腳本修正。
+*/
+export function ResetBufferGeometryPosition(thisName, parent) 
+{
+	let target = scene.getObjectByName("BufferGeometry_" + thisName);
+	target.position.set(-1 * parent.position.x, -1 * parent.position.y, -1 * parent.position.z);
+}
+
+
+// 建立一個模組層級的變數，用來暫存全域唯一實例
+let globalGuiInstance = null;
+let globalTransformControl = null;
+let globalDummy = null;
+let globalKeyDownHandler = null;
+let globalCameraFrameId = null; // 【新增】用來儲存 requestAnimationFrame 的 ID
+
+export function Hierarchy(target,thisCamera,thisScene,thisRenderer,thisControls) 
+{
+    // 1. 注入樣式&控制按鍵
+    SetupCSSStyle();
+    InstControllerBtn();
+    let current_btn_status="move";
+
+    // 2. DOM 容器建立與防重複
+    let panel = document.getElementById('hierarchy-panel');
+    let listContainer = document.getElementById('hierarchy-list');
+
+    // 確保網頁中只有一個階層面板
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'hierarchy-panel';
+        panel.innerHTML = '<div class="hierarchy-title">Hierarchy</div><div id="hierarchy-list"></div>';
+        document.body.appendChild(panel);
+        listContainer = document.getElementById('hierarchy-list');
+    } else {
+        listContainer = document.getElementById('hierarchy-list');
+        listContainer.innerHTML = ''; // 清空舊列表
+    }
+
+    // 移入 lil-gui 樣式微調
+    let guiContainer = document.querySelector('.lil-gui');
+
+    if (guiContainer) {
+        guiContainer.style.zIndex = '10000'; // 確保高於 hierarchy-panel (999)
+    }
+
+    let currentActiveItem = null;
+    
+    // ==========================================
+    // 3. 資源單例化（Singleton Pattern）防止重複生成
+    // ==========================================
+
+    // 在初始化新 loop 前，先確實殺掉舊的 requestAnimationFrame Loop
+    if (globalCameraFrameId) {
+        cancelAnimationFrame(globalCameraFrameId);
+        globalCameraFrameId = null;
+    }
+    
+    // A. 處理 TransformControls
+    if (globalTransformControl) {
+        thisScene.remove(globalTransformControl.getHelper());
+        globalTransformControl.dispose();
+    }
+
+    const control = new TransformControls(thisCamera, thisRenderer.domElement);
+    globalTransformControl = control;
+    
+    control.addEventListener('dragging-changed', (event) => {
+        thisControls.enabled = !event.value; // 拖曳時禁用軌道控制器
+    });
+
+    thisScene.add(control.getHelper());
+
+    // B. 處理 Dummy 代理物件
+    if (globalDummy) {
+        thisScene.remove(globalDummy);
+    }
+
+    const dummy = new THREE.Object3D();
+    globalDummy = dummy;
+    thisScene.add(dummy);
+
+    const worldPosition = new THREE.Vector3();
+    const worldQuaternion = new THREE.Quaternion();
+    const worldScale = new THREE.Vector3();
+
+    let activeModel = null; 
+    let originalParent = null; 
+
+    // 將控制軸綁定到模型的幾何中心
+    function AttachToCenter(model) 
+    {
+        if (activeModel) DetachCenter();
+
+        activeModel = model;
+        originalParent = model.parent || thisScene;
+        model.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale);
+
+        // 同步位置幾何中心
+        dummy.position.copy(ReturnModelCenter(model));
+        dummy.quaternion.copy(worldQuaternion);
+        dummy.scale.copy(worldScale); 
+        dummy.updateMatrixWorld(); 
+
+        // 綁定層級
+        dummy.attach(model);
+        control.attach(dummy);
+
+        // 更新面板
+        UpdateTransformInspector(model);
+        UpdateMaterialInspector(model);
+    }
+
+    // 安全解除選取
+    function DetachCenter() 
+    {
+        if (!activeModel) return;
+
+        control.removeEventListener('change', UpdateRotationDisplay);
+        control.detach();
+        originalParent.attach(activeModel); 
+
+        activeModel = null;
+        originalParent = null;
+
+        ResetInspectorsToDefault();
+    }
+
+    // ==========================================
+    // 4. GUI 面板單例化與管理
+    // ==========================================
+    if (globalGuiInstance) {
+        globalGuiInstance.destroy();
+    }
+
+    const gui = new GUI({ title: '物件屬性編輯器' });
+    globalGuiInstance = gui;
+    
+    const guiDom = gui.domElement;
+    guiDom.style.position = 'fixed';
+    guiDom.style.top = '10px';
+    guiDom.style.right = '10px';
+    guiDom.style.zIndex = '9999';
+    guiDom.style.width = '300px';
+
+    const cameraFolder = gui.addFolder('相機視角 (Camera and Controls)');
+    cameraFolder.open(); // 讓主資料夾展開
+
+    const camera_data = 
+    {
+        copyCameraPositionData: function() 
+        {
+            const camera_position = `${camera_controls_params.camera_x},${camera_controls_params.camera_y},${camera_controls_params.camera_z}`;
+
+            // 調用剪貼簿 API
+            navigator.clipboard.writeText(camera_position).then(() => {
+                console.log('座標已複製到剪貼簿:', camera_position);
+
+                // 選做：給使用者一點視覺回饋
+                alert('座標已複製！\n' + camera_position);
+            }).catch(err => {
+                console.error('複製失敗', err);
+            });
+        },
+
+        copyControlsTargetData: function() 
+        {
+            const controls_target = `${camera_controls_params.controlsTarget_x},${camera_controls_params.controlsTarget_y},${camera_controls_params.controlsTarget_z}`;
+
+            // 調用剪貼簿 API
+            navigator.clipboard.writeText(controls_target).then(() => {
+                console.log('座標已複製到剪貼簿:', controls_target);
+
+                // 選做：給使用者一點視覺回饋
+                alert('座標已複製！\n' + controls_target);
+            }).catch(err => {
+                console.error('複製失敗', err);
+            });
+        }
+    };
+
+    const CameraTransform = cameraFolder.addFolder( 'Camera Position' );
+    CameraTransform.open(); // 讓這個子資料夾展開
+
+    CameraTransform.add( camera_controls_params, 'camera_x').listen();
+
+    CameraTransform.add( camera_controls_params, 'camera_y').listen();
+
+    CameraTransform.add( camera_controls_params, 'camera_z').listen();
+
+    CameraTransform.add( camera_data, 'copyCameraPositionData' ).name('Copy Camera Position');
+
+    const ControlsTransform = cameraFolder.addFolder( 'ControlsTarget Position' );
+    ControlsTransform.open(); // 讓這個子資料夾展開
+
+    ControlsTransform.add( camera_controls_params, 'controlsTarget_x').listen();
+
+    ControlsTransform.add( camera_controls_params, 'controlsTarget_y').listen();
+
+    ControlsTransform.add(camera_controls_params, 'controlsTarget_z').listen();
+
+    ControlsTransform.add( camera_data, 'copyControlsTargetData' ).name('Copy Controls Target');
+
+    function FetchCameraPivotPosition()
+    {
+        globalCameraFrameId = requestAnimationFrame(FetchCameraPivotPosition);
+
+        camera_controls_params.camera_x=thisCamera.position.x.toFixed(3);
+        camera_controls_params.camera_y=thisCamera.position.y.toFixed(3);
+        camera_controls_params.camera_z=thisCamera.position.z.toFixed(3);
+
+        camera_controls_params.controlsTarget_x=thisControls.target.x.toFixed(3);
+        camera_controls_params.controlsTarget_y=thisControls.target.y.toFixed(3);
+        camera_controls_params.controlsTarget_z=thisControls.target.z.toFixed(3);
+    }
+
+    FetchCameraPivotPosition();
+
+    const transformFolder = gui.addFolder('物件座標與角度 (Transform)');
+    const materialFolder = gui.addFolder('材質屬性調整 (Material)');
+    
+    transformFolder.open();
+    materialFolder.open();
+
+    function ResetInspectorsToDefault() 
+    {
+        transformFolder.children.slice().forEach(c => c.destroy());
+        materialFolder.children.slice().forEach(c => c.destroy());
+
+        transformFolder.add({ msg: '請從左側選擇物件' }, 'msg').name('狀態').disable();
+        materialFolder.add({ msg: '請從左側選擇物件' }, 'msg').name('狀態').disable();
+    }
+    
+    ResetInspectorsToDefault();
+
+    // ==========================================
+    // 5. Transform 核心邏輯
+    // ==========================================
+    let transformControllers = {};
+
+    function UpdateTransformInspector(model) 
+    {
+        if (!model) return;
+        const targetToTrack = dummy; 
+        const WorldPos = { x: 0, y: 0, z: 0 };
+
+        const transform_params = {
+            copyPositionData: function() {
+                const currentWorldPos = new THREE.Vector3();
+                model.getWorldPosition(currentWorldPos);
+                const formattedPos = `${currentWorldPos.x.toFixed(4)}, ${currentWorldPos.y.toFixed(4)}, ${currentWorldPos.z.toFixed(4)}`;
+                navigator.clipboard.writeText(formattedPos).then(() => {
+                    alert('【位置參數已複製】\n' + formattedPos);
+                }).catch(err => console.error('複製失敗', err));
+            },
+
+            copyRotationData: function() {
+                const currentRotDeg = {
+                    x: THREE.MathUtils.radToDeg(targetToTrack.rotation.x).toFixed(2),
+                    y: THREE.MathUtils.radToDeg(targetToTrack.rotation.y).toFixed(2),
+                    z: THREE.MathUtils.radToDeg(targetToTrack.rotation.z).toFixed(2)
+                };
+                const formattedRot = `${currentRotDeg.x},${currentRotDeg.y},${currentRotDeg.z}`;
+                navigator.clipboard.writeText(formattedRot).then(() => {
+                    alert('【角度參數已複製】\n' + formattedRot);
+                }).catch(err => console.error('複製失敗', err));
+            }
+        };
+
+        transformFolder.children.slice().forEach(c => c.destroy());
+        transformControllers = {};
+
+        // A. Position 控制器
+        const posFolder = transformFolder.addFolder('位置 (Position)');
+        transformControllers.px = posFolder.add(targetToTrack.position, 'x').name('ModelCenter X').listen().onChange(() => SyncDummyToModel());
+        transformControllers.py = posFolder.add(targetToTrack.position, 'y').name('ModelCenter Y').listen().onChange(() => SyncDummyToModel());
+        transformControllers.pz = posFolder.add(targetToTrack.position, 'z').name('ModelCenter Z').listen().onChange(() => SyncDummyToModel());
+
+        posFolder.add(WorldPos, 'x').name('World X').listen();
+        posFolder.add(WorldPos, 'y').name('World Y').listen();
+        posFolder.add(WorldPos, 'z').name('World Z').listen();
+        posFolder.add(transform_params, 'copyPositionData').name('Copy World Position');
+        posFolder.open();
+
+        // B. Rotation 控制器
+        const rotFolder = transformFolder.addFolder('旋轉 (Rotation)');
+        const rotDeg = {
+            x: THREE.MathUtils.radToDeg(targetToTrack.rotation.x),
+            y: THREE.MathUtils.radToDeg(targetToTrack.rotation.y),
+            z: THREE.MathUtils.radToDeg(targetToTrack.rotation.z)
+        };
+
+        transformControllers.rx = rotFolder.add(rotDeg, 'x').name('X (Pitch)').listen().onChange(v => {
+            targetToTrack.rotation.x = THREE.MathUtils.degToRad(v);
+            SyncDummyToModel();
+        });
+        transformControllers.ry = rotFolder.add(rotDeg, 'y').name('Y (Yaw)').listen().onChange(v => {
+            targetToTrack.rotation.y = THREE.MathUtils.degToRad(v);
+            SyncDummyToModel();
+        });
+        transformControllers.rz = rotFolder.add(rotDeg, 'z').name('Z (Roll)').listen().onChange(v => {
+            targetToTrack.rotation.z = THREE.MathUtils.degToRad(v);
+            SyncDummyToModel();
+        });
+        rotFolder.add(transform_params, 'copyRotationData').name('Copy Rotation');
+        rotFolder.open();
+
+        // C. Scale 控制器
+        const scaleFolder = transformFolder.addFolder('縮放 (Scale)');
+        transformControllers.sx = scaleFolder.add(targetToTrack.scale, 'x', 0.001, 100).name('X').listen().onChange(() => SyncDummyToModel());
+        transformControllers.sy = scaleFolder.add(targetToTrack.scale, 'y', 0.001, 100).name('Y').listen().onChange(() => SyncDummyToModel());
+        transformControllers.sz = scaleFolder.add(targetToTrack.scale, 'z', 0.001, 100).name('Z').listen().onChange(() => SyncDummyToModel());
+        scaleFolder.open();
+
+        function SyncDummyToModel() {
+            targetToTrack.updateMatrixWorld();
+            model.getWorldPosition(worldPosition);
+            WorldPos.x = worldPosition.x;
+            WorldPos.y = worldPosition.y;
+            WorldPos.z = worldPosition.z;
+        }
+
+        // 初始化一次世界座標
+        SyncDummyToModel();
+
+        // 避免重複監聽
+        control.removeEventListener('change', UpdateRotationDisplay);
+        control.addEventListener('change', UpdateRotationDisplay);
+    }
+
+    function UpdateRotationDisplay() 
+    {
+        if (!activeModel || !transformControllers.rx) return;
+        transformControllers.rx.setValue(THREE.MathUtils.radToDeg(dummy.rotation.x), false);
+        transformControllers.ry.setValue(THREE.MathUtils.radToDeg(dummy.rotation.y), false);
+        transformControllers.rz.setValue(THREE.MathUtils.radToDeg(dummy.rotation.z), false);
+    }
+
+    // ==========================================
+    // 6. Material 核心邏輯
+    // ==========================================
+    function UpdateMaterialInspector(selectedTarget) {
+        materialFolder.children.slice().forEach(c => c.destroy());
+
+        let material = null;
+        selectedTarget.traverse((object) => {
+            if (object.isMesh && object.material) {   
+                material = object.material;
+            }
+        });
+
+        if (!material) {
+            materialFolder.add({ msg: "此物件無可調整材質" }, 'msg').name('提示').disable();
+            return;
+        }
+
+        const basicGui = materialFolder.addFolder("基礎參數 (Basic)");
+        basicGui.addColor({ color: material.color.getHex() }, 'color')
+            .name('顏色 (Color)')
+            .onChange(v => material.color.set(v));
+
+        if (material.roughness !== undefined) basicGui.add(material, 'roughness', 0, 1).name('粗糙度');
+        if (material.metalness !== undefined) basicGui.add(material, 'metalness', 0, 1).name('金屬度');
+        if (material.transmission !== undefined) basicGui.add(material, 'transmission', 0, 1).name('穿透度');
+        if (material.ior !== undefined) basicGui.add(material, 'ior', 1, 2.4).name('折射率');
+        if (material.reflectivity !== undefined) basicGui.add(material, 'reflectivity', 0, 1).name('反射率');
+        if (material.transparent !== undefined) basicGui.add(material, 'transparent').name('透明開啟');
+        if (material.opacity !== undefined) basicGui.add(material, 'opacity', 0, 1, 0.01).name('不透明度');
+        if (material.depthWrite !== undefined) basicGui.add(material, 'depthWrite').name('深度寫入');
+        basicGui.open();
+
+        // 輔助防禦：formatToRelativePath 若未定義時的降級處理
+        const formatPath = (path) => {
+            if (typeof formatToRelativePath === 'function') return formatToRelativePath(path);
+            return path;
+        };
+
+        if (material.map) {
+            const map_texture = material.map;
+            const mapGui = materialFolder.addFolder("主要貼圖 (Map)");
+            mapGui.add(map_texture.repeat, "x", 0, 2000, 0.1).name("平鋪 X").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.repeat, "y", 0, 2000, 0.1).name("平鋪 Y").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.offset, "x", -1, 1, 0.01).name("偏移 X").onChange(() => map_texture.needsUpdate = true);
+            mapGui.add(map_texture.offset, "y", -1, 1, 0.01).name("偏移 Y").onChange(() => map_texture.needsUpdate = true);
+        }
+
+        if (material.bumpMap) {
+            const bumpMap_texture = material.bumpMap;
+            const bumpMapGui = materialFolder.addFolder("凹凸貼圖 (BumpMap)");
+            bumpMapGui.add(bumpMap_texture.repeat, "x", 0, 2000, 0.1).name("平鋪 X").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.repeat, "y", 0, 2000, 0.1).name("平鋪 Y").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.offset, "x", -1, 1, 0.01).name("偏移 X").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(bumpMap_texture.offset, "y", -1, 1, 0.01).name("偏移 Y").onChange(() => bumpMap_texture.needsUpdate = true);
+            bumpMapGui.add(material, "bumpScale", -100, 100, 0.01).name("凹凸強度");
+        }
+
+        const params = {
+            copyEtchingMaterialData: function() {
+                const mapPath = material.map?.image?.src ? `"${formatPath(material.map.image.src)}"` : '"none"';
+                const mapRepeatX = material.map?.repeat?.x ?? 1;
+                const mapRepeatY = material.map?.repeat?.y ?? 1;
+                const mapOffsetX = material.map?.offset?.x ?? 0;
+                const mapOffsetY = material.map?.offset?.y ?? 0;
+
+                const bumpPath = material.bumpMap?.image?.src ? `"${formatPath(material.bumpMap.image.src)}"` : '"none"';
+                const bumpRepeatX = material.bumpMap?.repeat?.x ?? 1;
+                const bumpRepeatY = material.bumpMap?.repeat?.y ?? 1;
+                const bumpScale = material.bumpScale ?? 0;
+
+                const etchingMaterial_data = `'0x${material.color.getHexString().toUpperCase()}',${material.roughness},${material.metalness},${material.reflectivity},${material.transparent},${material.opacity},${mapPath},new THREE.Vector2(${mapRepeatX},${mapRepeatY}),new THREE.Vector2(${mapOffsetX},${mapOffsetY}),${bumpPath},new THREE.Vector2(${bumpRepeatX},${bumpRepeatY}),${bumpScale}`;
+
+                navigator.clipboard.writeText(etchingMaterial_data).then(() => {
+                    alert('【蝕刻材質參數已複製】\n' + etchingMaterial_data);
+                }).catch(err => console.error('複製失敗', err));
+            },
+
+            copyMaterialData: function() {
+                const material_data = `'0x${material.color.getHexString().toUpperCase()}',${material.roughness ?? 0},${material.metalness ?? 0},${material.transmission ?? 0},${material.ior ?? 1.5},${material.reflectivity ?? 0.5},${material.transparent ?? false},${material.opacity ?? 1},${material.depthWrite ?? true}`;
+
+                navigator.clipboard.writeText(material_data).then(() => {
+                    alert('【基礎材質參數已複製】\n' + material_data);
+                }).catch(err => console.error('複製失敗', err));
+            }
+        };
+
+        materialFolder.add(params, 'copyEtchingMaterialData').name('Copy Params (Etching)');
+        materialFolder.add(params, 'copyMaterialData').name('Copy Params (Basic)');
+    }
+
+    // ==========================================
+    // 7. Hierarchy 渲染
+    // ==========================================
+    SafeTraverse(target, (object) => {
+        if (
+            object.isLight || 
+            object.isCamera || 
+            object.isGridHelper || 
+            object.isTransformControls || 
+            !object.visible ||
+            object.name === "TransformControls" ||
+            object === dummy // 避免把代理 dummy 顯示在選單中
+        ) { 
+            return;
+        }
+
+        const item = document.createElement('div');
+        item.className = 'hierarchy-item';
+        
+        const objName = object.name || `${object.type} (${object.uuid.substring(0, 5)})`;
+        item.innerText = objName;
+
+        item.addEventListener('click', () => {
+            if (currentActiveItem !== item) {
+                if (currentActiveItem) currentActiveItem.classList.remove('active');
+
+                if(!currentActiveItem)
+                {
+                    switch(current_btn_status)
+                    {
+                        case "move":
+
+                        document.getElementById("move_btn").classList.add("active");
+
+                        break;
+
+                        case "rotate":
+
+                        document.getElementById("rotate_btn").classList.add("active");
+
+                        break;
+
+                        case "scale":
+
+                        document.getElementById("scale_btn").classList.add("active");
+
+                        break;
+                    }
+                }
+                
+                item.classList.add('active');
+                currentActiveItem = item;
+                AttachToCenter(object); 
+            } 
+            else {
+                DetachCenter(); 
+                currentActiveItem.classList.remove('active');
+                currentActiveItem = null;  
+                ResetControllerBtn();   
+            }
+        });
+
+        listContainer.appendChild(item);
+    });
+
+    if (listContainer.children.length === 0) {
+        listContainer.innerHTML = '<div style="color:#888; font-style:italic;">場景中無可用模型</div>';
+    }
+
+    // ==========================================
+    // 8. 快捷鍵事件安全綁定（防範重複註冊）
+    // ==========================================
+    if (globalKeyDownHandler) {
+        window.removeEventListener('keydown', globalKeyDownHandler);
+    }
+
+    const handleKeyDown = (event) => {
+        // 當使用者在 GUI 的 input 中輸入數值時，不觸發快捷鍵切換控制軸模式
+        if (document.activeElement.tagName === 'INPUT') return;
+
+        switch (event.key) {
+            case 'q': control.setSpace(control.space === 'local' ? 'world' : 'local'); break;
+            case 'w': control.setMode('translate'); break;
+            case 'e': control.setMode('rotate'); break;
+            case 'r': control.setMode('scale'); break;
+            case '+': control.setSize(control.size + 0.1); break;
+            case '-': control.setSize(Math.max(control.size - 0.1, 0.1)); break;
+        }
+    };
+    
+    globalKeyDownHandler = handleKeyDown;
+    window.addEventListener('keydown', handleKeyDown);
+
+    // ==========================================
+    // 9. 【最佳實踐】生命週期釋放（Cleanup Function）
+    // ==========================================
+    // 讓呼叫此腳本的外部程式（如 React/Vue 組件卸載時）可以完全清除資源
+    return function destroy() {
+        DetachCenter();
+
+        // 【修正】安全清除無窮渲染迴圈，防止記憶體洩漏
+        if (cameraFrameId) {
+            cancelAnimationFrame(cameraFrameId);
+        }
+
+        if (globalKeyDownHandler) {
+            window.removeEventListener('keydown', globalKeyDownHandler);
+            globalKeyDownHandler = null;
+        }
+
+        if (globalGuiInstance) {
+            globalGuiInstance.destroy();
+            globalGuiInstance = null;
+        }
+
+        if (globalTransformControl) {
+            thisScene.remove(globalTransformControl.getHelper());
+            globalTransformControl.dispose();
+            globalTransformControl = null;
+        }
+
+        if (globalDummy) {
+            thisScene.remove(globalDummy);
+            globalDummy = null;
+        }
+
+        const panel = document.getElementById('hierarchy-panel');
+        if (panel) panel.remove();
+    };
+
+    function SetupCSSStyle()
+    {
+        const linkId = 'material-symbols-open-with';
+    
+        // 防重複載入機制：如果已經載入過就不再重複建立
+        if (!document.getElementById(linkId))
+        {
+            const link = document.createElement('link');
+            link.id = linkId;
+            link.rel = 'stylesheet';
+            link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200';
+            document.head.appendChild(link);
+        }
+
+        const existingStyle = document.getElementById('threejs-editor-ui-styles');
+        if (existingStyle) return;
+
+        const style = document.createElement('style');
+        style.id = 'threejs-editor-ui-styles'; 
+        style.textContent = `
+            #hierarchy-panel {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                width: 250px;
+                height: calc(100vh - 20px);
+                background: rgba(30, 30, 30, 0.9);
+                color: #ffffff;
+                font-family: sans-serif;
+                padding: 10px;
+                box-sizing: border-box;
+                overflow-y: auto;
+                border-radius: 8px;
+                z-index: 999; 
+                border: 1px solid #444;
+            }
+
+            #hierarchy-panel::-webkit-scrollbar {
+                width: 6px;
+            }
+            #hierarchy-panel::-webkit-scrollbar-track {
+                background: rgba(0, 0, 0, 0.1);
+                border-radius: 8px;
+            }
+            #hierarchy-panel::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.15);
+                border-radius: 3px;
+                transition: background 0.2s;
+            }
+            #hierarchy-panel::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+
+            .hierarchy-item {
+                padding: 6px 8px;
+                margin: 4px 0;
+                background: #2a2a2a;
+                cursor: pointer;
+                border-radius: 4px;
+                font-size: 13px;
+                transition: background 0.2s;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            .hierarchy-item:hover {
+                background: #3a3a3a;
+            }
+
+            .hierarchy-item.active {
+                background: #007acc; 
+                font-weight: bold;
+            }
+
+            .hierarchy-title {
+                font-size: 16px;
+                font-weight: bold;
+                margin-bottom: 10px;
+                border-bottom: 1px solid #555;
+                padding-bottom: 5px;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            #controller_panel
+			{
+				position: absolute;
+				left: 50%;
+				bottom: 10px;
+				width: 50%;
+				height: 60px;
+				transform: translate(-50%,0%);
+				display: flex;
+				justify-content: center;
+			}
+
+			.controller_btn
+			{
+				width: 60px;
+				height: 60px;
+				cursor: pointer;
+                border-radius: 4px;
+				margin: 0 6px;
+                display: flex;
+				justify-content: center;
+                flex-direction:column;
+                text-align:center;
+			}
+
+            .material-symbols-outlined 
+            {
+              font-variation-settings:
+              'FILL' 0,
+              'wght' 200,
+              'GRAD' 0,
+              'opsz' 24;
+               font-size: 36px;
+            }
+
+            .controller_btn:hover .material-symbols-outlined 
+			{
+				color: #007baf;
+			}
+
+            .controller_btn.active .material-symbols-outlined 
+			{
+				color: #007baf;
+			}
+        `;
+        document.head.appendChild(style);
+    }
+
+    function InstControllerBtn()
+    {
+        // 【修正】防重複建立底部面板
+        let btnHolder = document.getElementById("controller_panel");
+        if (btnHolder) {
+            btnHolder.innerHTML = ''; // 清空重新綁定事件
+        } else {
+            btnHolder = document.createElement('div');
+            btnHolder.id = "controller_panel";
+            document.body.appendChild(btnHolder);
+        }
+      
+        const btnDiv_01 = document.createElement( 'div' );
+        btnDiv_01.className = "controller_btn";
+        btnDiv_01.id = "direction_btn";
+        btnHolder.appendChild(btnDiv_01);
+
+        const btnDiv_02 = document.createElement( 'div' );
+        btnDiv_02.className = "controller_btn";
+        btnDiv_02.id = "move_btn";
+        btnHolder.appendChild(btnDiv_02);
+
+        const btnDiv_03 = document.createElement( 'div' );
+        btnDiv_03.className = "controller_btn";
+        btnDiv_03.id = "rotate_btn";
+        btnHolder.appendChild(btnDiv_03);
+
+        const btnDiv_04 = document.createElement( 'div' );
+        btnDiv_04.className = "controller_btn";
+        btnDiv_04.id = "scale_btn";
+        btnHolder.appendChild(btnDiv_04);
+
+        const btnIcon_01 = document.createElement( 'span' );
+        btnIcon_01.className = "material-symbols-outlined";
+        btnIcon_01.textContent = "language";
+        btnDiv_01.appendChild(btnIcon_01);
+
+        const btnIcon_02 = document.createElement( 'span' );
+        btnIcon_02.className = "material-symbols-outlined";
+        btnIcon_02.textContent = "open_with";
+        btnDiv_02.appendChild(btnIcon_02);
+
+        const btnIcon_03 = document.createElement( 'span' );
+        btnIcon_03.className = "material-symbols-outlined";
+        btnIcon_03.textContent = "360";
+        btnDiv_03.appendChild(btnIcon_03);
+
+        const btnIcon_04 = document.createElement( 'span' );
+        btnIcon_04.className = "material-symbols-outlined";
+        btnIcon_04.textContent = "zoom_out_map";
+        btnDiv_04.appendChild(btnIcon_04);
+    
+        btnDiv_01.addEventListener("pointerdown", () => {
+            
+            if(!activeModel)
+            {
+                alert("未選擇零件");
+                return;
+            }
+
+            control.setSpace(control.space === 'local' ? 'world' : 'local');
+            btnIcon_01.textContent = control.space === 'local' ? 'token' : "language";
+        
+        });
+
+        btnDiv_02.addEventListener("pointerdown", () => {
+            
+            if(!activeModel)
+            {
+                alert("未選擇零件");
+                return;
+            }
+
+            ResetControllerBtn();
+            btnDiv_02.classList.add("active");
+            control.setMode('translate');
+            current_btn_status="move";
+
+        });
+
+        btnDiv_03.addEventListener("pointerdown", () => {
+        
+            if(!activeModel)
+            {
+                alert("未選擇零件");
+                return;
+            }
+
+            ResetControllerBtn();
+            btnDiv_03.classList.add("active");
+            control.setMode('rotate');
+            current_btn_status="rotate";
+
+        });
+
+        btnDiv_04.addEventListener("pointerdown", () => {
+    
+            if(!activeModel)
+            {
+                alert("未選擇零件");
+                return;
+            }
+
+            ResetControllerBtn();
+            btnDiv_04.classList.add("active");
+            control.setMode('scale');
+            current_btn_status="scale";
+        
+        });
+    }
+
+    function ResetControllerBtn() 
+    {
+		document.querySelectorAll(".controller_btn").forEach(btn => btn.classList.remove("active"));
+	}
+}
