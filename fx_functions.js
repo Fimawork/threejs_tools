@@ -843,16 +843,6 @@ export function Material_Inspector(thisScene)
         UpdateItem();
 	});
 
-    function FetchHexColor(targetMaterial)
-    {
-        const hex = targetMaterial.color.getHexString().toUpperCase();
-
-        // 拼湊成你想要的格式
-        const finalFormat = '0x' + hex;
-
-        return finalFormat;
-    }
-
     let sub_gui;
 
     UpdateContent();;
@@ -937,6 +927,16 @@ export function Material_Inspector(thisScene)
         sub_gui.add( params, 'copyEtchingMaterialData' ).name('Copy Params for InstEtchingMaterial');
         sub_gui.add( params, 'copyMaterialData' ).name('Copy Params for InstMaterial');
     }
+}
+
+function FetchHexColor(targetMaterial)
+{
+    const hex = targetMaterial.color.getHexString().toUpperCase();
+
+    // 拼湊成你想要的格式
+    const finalFormat = '0x' + hex;
+
+    return finalFormat;
 }
 
 //材質球名稱搜尋Mesh
@@ -2374,7 +2374,7 @@ export function Hierarchy(target,thisCamera,thisScene,thisRenderer,thisControls)
                 const bumpRepeatY = material.bumpMap?.repeat?.y ?? 1;
                 const bumpScale = material.bumpScale ?? 0;
 
-                const etchingMaterial_data = `'0x${material.color.getHexString().toUpperCase()}',${material.roughness},${material.metalness},${material.reflectivity},${material.transparent},${material.opacity},${mapPath},new THREE.Vector2(${mapRepeatX},${mapRepeatY}),new THREE.Vector2(${mapOffsetX},${mapOffsetY}),${bumpPath},new THREE.Vector2(${bumpRepeatX},${bumpRepeatY}),${bumpScale}`;
+                const etchingMaterial_data = `${FetchHexColor(material)},${material.roughness},${material.metalness},${material.reflectivity},${material.transparent},${material.opacity},${mapPath},new THREE.Vector2(${mapRepeatX},${mapRepeatY}),new THREE.Vector2(${mapOffsetX},${mapOffsetY}),${bumpPath},new THREE.Vector2(${bumpRepeatX},${bumpRepeatY}),${bumpScale}`;
 
                 navigator.clipboard.writeText(etchingMaterial_data).then(() => {
                     alert('【蝕刻材質參數已複製】\n' + etchingMaterial_data);
@@ -2382,7 +2382,7 @@ export function Hierarchy(target,thisCamera,thisScene,thisRenderer,thisControls)
             },
 
             copyMaterialData: function() {
-                const material_data = `'0x${material.color.getHexString().toUpperCase()}',${material.roughness ?? 0},${material.metalness ?? 0},${material.transmission ?? 0},${material.ior ?? 1.5},${material.reflectivity ?? 0.5},${material.transparent ?? false},${material.opacity ?? 1},${material.depthWrite ?? true}`;
+                const material_data = `${FetchHexColor(material)},${material.roughness ?? 0},${material.metalness ?? 0},${material.transmission ?? 0},${material.ior ?? 1.5},${material.reflectivity ?? 0.5},${material.transparent ?? false},${material.opacity ?? 1},${material.depthWrite ?? true}`;
 
                 navigator.clipboard.writeText(material_data).then(() => {
                     alert('【基礎材質參數已複製】\n' + material_data);
@@ -2621,6 +2621,7 @@ export function Hierarchy(target,thisCamera,thisScene,thisRenderer,thisControls)
 				transform: translate(-50%,0%);
 				display: flex;
 				justify-content: center;
+                z-index: 999; 
 			}
 
 			.controller_btn
