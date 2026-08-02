@@ -70,6 +70,55 @@ export function CameraManager(i)
     targetPosition=posData[i];
 }
 
+//可動態調整轉場時間
+export function CameraManager_Type_B(i,thisCamera,thisControls,targetElement,duration)
+{
+	LerpVector3(thisCamera.position, posData[i].camera_pos,duration);
+	LerpVector3(thisControls.target, posData[i].controlsTarget_pos,duration);
+
+    let isMouseLeftPressed=false;
+    var newPointerXValue=0;
+    var newPointerYValue=0;
+    var currentPointerXValue=0;
+    var currentPointerYValue=0;
+
+    targetElement.addEventListener( 'pointermove', (event)=>{
+
+        newPointerXValue=event.clientX;
+        newPointerYValue=event.clientY;
+
+        if(isMouseLeftPressed)
+        {
+            if(Math.abs(newPointerXValue-currentPointerXValue)>10||Math.abs(newPointerYValue-currentPointerYValue)>10)
+            {
+                cancelAnimationFrame(frameLerpVector3);
+                frameLerpVector3 = null;
+            }
+        }
+    });
+
+    targetElement.addEventListener("pointerdown", (event) => {
+        
+        isMouseLeftPressed=true;
+        currentPointerXValue=newPointerXValue;
+        currentPointerYValue=newPointerYValue;
+
+    });
+
+    targetElement.addEventListener("pointerup", (event) => {
+
+        isMouseLeftPressed=false;
+
+    });
+
+    targetElement.addEventListener("wheel", (event) => {
+
+        cancelAnimationFrame(frameLerpVector3);
+        frameLerpVector3 = null;
+        
+  });
+}
+
 export function SetDefaultCameraStatus(thisCameraDefaultPos,thisControlsTargetPos)
 {
 	CameraDefaultPos=thisCameraDefaultPos;
@@ -1200,6 +1249,72 @@ export function LerpFloat(current,target,ratio)
 	value=current+(target-current)*ratio;
 
 	return value;
+}
+
+// 用來記錄每個物件目前正在執行的動畫取消函式
+const activeAnimationsLerpVector3 = new WeakMap();
+let frameLerpVector3;
+
+//可以利用duration來設定時間
+export function LerpVector3(currentPos,targetPos,duration)
+{
+   // 0. 傳入值安全性檢查
+    if (typeof currentPos !== 'object' || currentPos === null) {
+        console.warn('LerpVector3: currentPos 必須是一個物件');
+        return Promise.resolve(false);
+    }
+
+    // 1. 防禦性檢查：如果 duration <= 0，直接瞬移並結束
+    if (duration <= 0) {
+        currentPos.x = targetPos.x;
+        currentPos.y = targetPos.y;
+        currentPos.z = targetPos.z;
+        return Promise.resolve(true);
+    }
+
+    // 2. 如果該物件已有正在執行的動畫，先將舊動畫取消
+    if (activeAnimationsLerpVector3.has(currentPos)) {
+        activeAnimationsLerpVector3.get(currentPos)();
+    }
+
+    return new Promise((resolve) => {
+        const start = { x: currentPos.x, y: currentPos.y, z: currentPos.z };
+        const end   = { x: targetPos.x, y: targetPos.y, z: targetPos.z };
+        
+        let t0 = null; // 延後到第一個 frame 才紀錄時間，避免第一幀跳格
+        frameLerpVector3 = null;
+
+        // 定義取消邏輯
+        const cancel = () => {
+            if (frameLerpVector3) cancelAnimationFrame(frameLerpVector3);
+            activeAnimationsLerpVector3.delete(currentPos);
+            resolve(false); // 回傳 false 代表動畫被打斷，未順利完成
+        };
+
+        // 註冊當前物件的取消控制器
+        activeAnimationsLerpVector3.set(currentPos, cancel);
+
+        const animate = (now) => {
+            if (!t0) t0 = now; // 第一次執行時才捕捉精確起點時間
+
+            const t = Math.min((now - t0) / duration, 1);
+            const e = 1 - Math.pow(1 - t, 3); // Ease-Out Cubic
+
+            currentPos.x = start.x + (end.x - start.x) * e;
+            currentPos.y = start.y + (end.y - start.y) * e;
+            currentPos.z = start.z + (end.z - start.z) * e;
+
+            if (t < 1) {
+                frameLerpVector3 = requestAnimationFrame(animate);
+            } else {
+                activeAnimationsLerpVector3.delete(currentPos);
+                resolve(true); // 回傳 true 代表順利完成
+            }
+        };
+
+        frameLerpVector3 = requestAnimationFrame(animate);
+    });
+    
 }
 
 export function isMobile()//偵測是否為行動裝置
