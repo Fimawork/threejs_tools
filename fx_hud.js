@@ -1,6 +1,32 @@
+const targetId = "fx_loading_effect";
+
+// 1. 建立效果對映表 (Strategy Map)
+const loadingEffects = {
+    "A": InstLoadingEffect_Type_A,
+    "B": InstLoadingEffect_Type_B,
+    // 未來擴充直接在這裡加：
+    // "C": InstLoadingEffect_Type_C,
+    // "D": InstLoadingEffect_Type_D,
+};
+
+// 2. 簡化後的 Manager
+export function LoadingEffectManager(type, show) 
+{
+    const effect = loadingEffects[type];
+
+    if (effect) 
+    {
+        effect(show);
+    } 
+    
+    else 
+    {
+        console.warn(`[LoadingEffectManager] 未知的載入類型: ${type}`);
+    }
+}
+
 export function InstLoadingEffect_Type_A(show)
 {
-    const targetId = "fx_loading_effect";
     let target = document.getElementById(targetId);
 
     if(show)
@@ -62,7 +88,6 @@ export function InstLoadingEffect_Type_A(show)
 
 export function InstLoadingEffect_Type_B(show)
 {
-    const targetId = "fx_loading_effect";
     let target = document.getElementById(targetId);
 
     if(show)
