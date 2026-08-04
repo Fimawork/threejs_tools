@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import { WaterMesh } from 'three/addons/objects/WaterMesh.js';
+import { SkyMesh } from 'three/addons/objects/SkyMesh.js';
+
+export let water, sun, sky;
 
 //繼承模型color,roughness,matelness參數後套用咬花效果
 export function EtchingEffect(target,map_src,map_repeat,map_offset,bumpMap_src,bumpMap_repeat,bumpMap_scale)
@@ -75,4 +79,53 @@ export function InstMaterial(thisColor,thisRoughness,thisMetalness,thisTransmiss
     new_material.depthWrite=isDepthWrite;
 
     return new_material;
+}
+
+export function InstOceanEnvironment({waterNormalUrl='./textures/waternormals.jpg',waterSize=10,skyCloudCoverage=0.36,skyCloudDensity=0.84,skyCloudElevation=0.1,skySunElevation=60,skySunAzimuth=180}= {}) 
+{
+	sun = new THREE.Vector3();
+	const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+	const loader = new THREE.TextureLoader();
+	const waterNormals = loader.load(waterNormalUrl);
+	waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
+
+	water = new WaterMesh(waterGeometry, {
+		waterNormals,
+		sunDirection: new THREE.Vector3(),
+		sunColor: 0xffffff,
+		waterColor: 0x001e0f,
+		distortionScale: 3.7,
+		size: waterSize,
+		alpha: 1
+	});
+
+	water.rotation.x = -Math.PI / 2;
+
+	sky = new SkyMesh();
+	sky.scale.setScalar(10000);
+
+	sky.turbidity.value       = 2;
+	sky.rayleigh.value        = 2;
+	sky.mieCoefficient.value  = 0.005;
+	sky.mieDirectionalG.value = 0.8;
+	sky.cloudCoverage.value   = skyCloudCoverage;
+	sky.cloudDensity.value    = skyCloudDensity;
+	sky.cloudElevation.value  = skyCloudElevation;
+
+	const parameters = { elevation: skySunElevation, azimuth: skySunAzimuth };
+	const phi   = THREE.MathUtils.degToRad(90 - parameters.elevation);
+	const theta = THREE.MathUtils.degToRad(parameters.azimuth);
+	sun.setFromSphericalCoords(1, phi, theta);
+
+	sky.sunPosition.value.copy(sun);
+	water.sunDirection.value.copy(sun).normalize();
+}
+
+export function UpdateSun(newElevation,newAzimuth)
+{
+    const phi = THREE.MathUtils.degToRad( 90 - newElevation );
+	const theta = THREE.MathUtils.degToRad( newAzimuth );
+	sun.setFromSphericalCoords( 1, phi, theta );
+    sky.sunPosition.value.copy( sun );
+    water.sunDirection.value.copy( sun ).normalize();
 }
