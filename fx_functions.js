@@ -17,6 +17,10 @@ import { gaussianBlur } from 'three/addons/tsl/display/GaussianBlurNode.js';
 import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
+//Outline工具
+import { pass, time, oscSine, vec4 } from 'three/tsl';
+import { outline } from 'three/addons/tsl/display/OutlineNode.js';
+
 //提供UI元件應用
 import * as FXUI from 'https://cdn.jsdelivr.net/gh/Fimawork/threejs_tools@2.43/fx_hud.js';
 
@@ -25,6 +29,9 @@ import Stats from 'three/addons/libs/stats.module.js';
 export let targetPosition=null;
 
 export let CameraDefaultPos, ControlsTargetDefaultPos;
+
+export let renderPipeline, outlinePass;
+export let selectedObjects = [];
 
 ///建議設置默認位置 posData[0]={ camera_pos:CameraDefaultPos, controlsTarget_pos:ControlsTargetDefaultPos};
 ///可自行擴充點位，EX:posData[1]={ camera_pos:new THREE.Vector3(267.359,339.340,302.847), controlsTarget_pos:new THREE.Vector3(-22.364,-14.285,25.345)};
@@ -1315,6 +1322,11 @@ export function LerpVector3(currentPos,targetPos,duration)
         frameLerpVector3 = requestAnimationFrame(animate);
     });
     
+}
+
+export function ReturnRandomValue(max,min)
+{
+	return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 export function isMobile()//偵測是否為行動裝置
@@ -2775,4 +2787,67 @@ export function Hierarchy(target,thisCamera,thisScene,thisRenderer,thisControls)
     {
 		document.querySelectorAll(".controller_btn").forEach(btn => btn.classList.remove("active"));
 	}
+}
+
+export function SmoothUpdateRotation(target,targetDegree,axis,rpm)
+{		
+	switch(axis)
+	{
+		case "x":target.rotation.x += (THREE.MathUtils.degToRad(targetDegree) - target.rotation.x) * rpm;break;
+		case "y":target.rotation.y += (THREE.MathUtils.degToRad(targetDegree) - target.rotation.y) * rpm;break;
+		case "z":target.rotation.z += (THREE.MathUtils.degToRad(targetDegree) - target.rotation.z) * rpm;break;
+	}
+}
+
+export function SetupOutlinePass({edgeStrength_value=3.0,edgeGlow_value=0.5,edgeThickness_value=1.0,pulsePeriod_value=5,visibleEdgeColor_value=0x00dbff,hiddenEdgeColor_value=0x007a8e,thisScene=null,thisCamera=null,thisRenderer=null}= {}) 
+{
+    const edgeStrength = uniform( edgeStrength_value );
+    const edgeGlow = uniform( edgeGlow_value );
+    const edgeThickness = uniform( edgeThickness_value );
+    const pulsePeriod = uniform( pulsePeriod_value );
+    const visibleEdgeColor = uniform( new THREE.Color( visibleEdgeColor_value ) );
+    const hiddenEdgeColor = uniform( new THREE.Color( hiddenEdgeColor_value ) );
+
+    outlinePass = outline( thisScene, thisCamera, {
+        selectedObjects,
+        edgeGlow,
+        edgeThickness
+    });
+
+    const { visibleEdge, hiddenEdge } = outlinePass;
+
+    const period = time.div( pulsePeriod ).mul( 2 );
+    const osc = oscSine( period ).mul( .5 ).add( .5 ); // osc [ 0.5, 1.0 ]
+
+    const outlineColor = visibleEdge.mul( visibleEdgeColor ).add( hiddenEdge.mul( hiddenEdgeColor ) ).mul( edgeStrength );
+    const outlinePulse = pulsePeriod.greaterThan( 0 ).select( outlineColor.mul( osc ), outlineColor );
+
+    const scenePass = pass( thisScene, thisCamera );
+
+                    // 2. 將 3D 模型顏色與 Outline 顏色相加
+    const finalColor = scenePass.rgb.add( outlinePulse.rgb );
+
+                // 3. 計算正確的 Alpha 通道（取 float 純量）：
+    // 有模型 (scenePass.a) 或 有輪廓 (visibleEdge / hiddenEdge) 時顯示為 1，其餘背景區域為 0 (透明透出 CSS)
+    const outlineAlpha = visibleEdge.r.add( hiddenEdge.r ).clamp( 0.0, 1.0 );
+    const finalAlpha = scenePass.a.max( outlineAlpha );
+
+    // 輸出 
+    renderPipeline = new THREE.RenderPipeline( thisRenderer );
+    renderPipeline.outputNode = vec4( finalColor, finalAlpha );
+}
+
+export function SetOutlineEffect( target ) 
+{
+    if(target)
+    {
+        selectedObjects = [];
+        selectedObjects.push( target );
+        outlinePass.selectedObjects=selectedObjects;
+    }
+
+    else
+    {
+        outlinePass.selectedObjects = [];
+    }
 }

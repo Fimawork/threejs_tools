@@ -129,3 +129,15 @@ export function UpdateSun(newElevation,newAzimuth)
     sky.sunPosition.value.copy( sun );
     water.sunDirection.value.copy( sun ).normalize();
 }
+
+
+//高亮面反射clearcoat = 1.0, clearcoatRoughness = 0.05，
+//半啞光保護漆：clearcoat = 0.5, clearcoatRoughness = 0.4
+//關閉效果：clearcoat = 0.0
+//僅支援MeshPhysicalMaterial材質
+export function ClearCoatEffect(targetMaterial,clearcoat_value,clearcoatRoughness_value)
+{
+	targetMaterial.clearcoat= clearcoat_value;
+	targetMaterial.clearcoatRoughness=clearcoatRoughness_value;
+	targetMaterial.needsUpdate = true;
+}
