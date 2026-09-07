@@ -24,6 +24,10 @@ import { outline } from 'three/addons/tsl/display/OutlineNode.js';
 //提供UI元件應用
 import * as FXUI from 'https://cdn.jsdelivr.net/gh/Fimawork/threejs_tools@2.43/fx_hud.js';
 
+// Transition tools
+import { transition } from 'three/addons/tsl/display/TransitionNode.js';
+import gsap from 'https://cdn.jsdelivr.net/npm/gsap@3.13.0/index.js';
+
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let targetPosition=null;
@@ -2799,6 +2803,7 @@ export function SmoothUpdateRotation(target,targetDegree,axis,rpm)
 	}
 }
 
+///Outline效果工具
 export function SetupOutlinePass({edgeStrength_value=3.0,edgeGlow_value=0.5,edgeThickness_value=1.0,pulsePeriod_value=5,visibleEdgeColor_value=0x00dbff,hiddenEdgeColor_value=0x007a8e,thisScene=null,thisCamera=null,thisRenderer=null}= {}) 
 {
     const edgeStrength = uniform( edgeStrength_value );
@@ -2850,4 +2855,79 @@ export function SetOutlineEffect( target )
     {
         outlinePass.selectedObjects = [];
     }
+}
+
+///轉場效果工具
+let transitionPass;
+let isSceneTransitioning = false;
+export let currentSceneIndex = 0;
+
+export let mesh_list=[]=[{ current:null, next:null}];
+export let material_list = [];
+
+const progressNode = uniform(0.0);
+const thresholdNode = uniform(0.1);
+const useTextureNode = uniform(1);
+
+//擴充範例
+//FX.mesh_list[0]={current:housingMesh_current,next:housingMesh_next};
+//FX.mesh_list[1]={current:housingMesh_current_01,next:housingMesh_next_01};
+
+export function SetupTransitionModule(thisScene,sceneNext,thisCamera,thisRenderer,transitionTextrue_src)
+{
+    const pass_current = pass(thisScene, thisCamera);
+	const pass_next    = pass(sceneNext, thisCamera);
+
+	const loader = new THREE.TextureLoader();
+	const transition_texture = loader.load(transitionTextrue_src);
+	const transition_textureNode   = new THREE.TextureNode(transition_texture);
+
+	renderPipeline = new THREE.RenderPipeline(thisRenderer);
+
+	transitionPass = transition(
+		pass_current,
+		pass_next,
+		transition_textureNode,
+		progressNode,
+		thresholdNode,
+		useTextureNode
+	);
+
+    renderPipeline = new THREE.RenderPipeline( thisRenderer );
+    renderPipeline.outputNode = transitionPass;
+	progressNode.value = 1.0;
+}
+
+export function SceneTransitionEffect(targetIndex) 
+{
+	if (isSceneTransitioning || targetIndex === currentSceneIndex) return;
+	isSceneTransitioning = true;
+
+	gsap.killTweensOf(progressNode);
+
+    for(let i=0;i<mesh_list.length;i++)
+    {
+        mesh_list[i].next.material=material_list[i][targetIndex];
+    }
+
+	progressNode.value = 1.0;
+	renderPipeline.render();
+
+	gsap.to(progressNode, {
+		value: 0.0,
+		duration: 1.5,
+		ease: 'power2.inOut',
+		onComplete: () => {
+			currentSceneIndex = targetIndex;
+			
+            for(let i=0;i<mesh_list.length;i++)
+            {
+                mesh_list[i].current.material=material_list[i][targetIndex];
+            }
+
+			progressNode.value = 0.0;
+			isSceneTransitioning = false;
+			console.log(`轉場成功！目前顯示 Scene ${currentSceneIndex + 1}`);
+		}
+	});
 }
