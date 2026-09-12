@@ -28,6 +28,11 @@ import * as FXUI from 'https://cdn.jsdelivr.net/gh/Fimawork/threejs_tools@2.43/f
 import { transition } from 'three/addons/tsl/display/TransitionNode.js';
 import gsap from 'https://cdn.jsdelivr.net/npm/gsap@3.13.0/index.js';
 
+// dof tools
+import { mix, renderOutput, smoothstep } from 'three/tsl';
+import { boxBlur } from 'three/addons/tsl/display/boxBlur.js';
+import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
+
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let targetPosition=null;
@@ -1499,7 +1504,8 @@ await WaitUntilWithTimeout(
 */
 
 //影子工具
-let shadowCamera, shadowGroup;
+export let shadowGroup;
+let shadowCamera;
 let renderTarget;
 let plane, fillPlane, cameraHelper;
 let depthMaterial, shadowPlaneMaterial, fillPlaneMaterial;
@@ -1516,7 +1522,7 @@ let CAMERA_HEIGHT = 50;//必須高於模型，否則看不到
 
 
 //若要修改必須設定在InitWebGPUShadow之前
-export function UpdateShadowSpcaceSize( ground_width, ground_height, camera_height)
+export function UpdateShadowSpcaceSize({ground_width=100,ground_height=100,camera_height=50}= {})
 {
     PLANE_WIDTH = ground_width;
     PLANE_HEIGHT = ground_height;
@@ -1594,7 +1600,7 @@ export function InitWebGPUShadow(scene, customSetting = {})
 }
 
 
-export function UpdateWebGPUShadow(renderer, scene, mainCamera) 
+export function UpdateWebGPUShadow(renderer, scene) 
 {
     // 【優化】後台錄製前，先隱藏影子地板與補色地板，避免自己拍到自己
     plane.visible = false;
@@ -1625,9 +1631,6 @@ export function UpdateWebGPUShadow(renderer, scene, mainCamera)
 
     plane.visible = true;
     fillPlane.visible = true;
-
-    // 執行第二階段：正常渲染主畫面到螢幕上
-    //renderer.render( scene, mainCamera || camera );
 }
 
 //USDZ生成工具
@@ -2930,4 +2933,87 @@ export function SceneTransitionEffect(targetIndex)
 			console.log(`轉場成功！目前顯示 Scene ${currentSceneIndex + 1}`);
 		}
 	});
+}
+
+
+export function  SceneFocusInEffect(thisScene,thisCamera,thisRenderer,thisDuration = 5) 
+{
+    return new Promise((resolve) => {
+        let isEffectActive = true;
+        let frameAnimId = null;
+        let renderPipeline = null;
+
+        // --- 1. TSL Uniforms 動態控制參數 ---
+        const focusDistance = uniform(0.1);      // 初始焦距（極近處失焦）
+        const focusRange = uniform(8.0);         // 擴大清晰景深過渡帶
+        const transitionProgress = uniform(1.0); // 1.0 模糊, 0.0 清晰
+
+        // --- 2. 建構高品質雙重 Pass 模糊 ---
+        const scenePass = pass(thisScene, thisCamera);
+        const sceneColor = scenePass.getTextureNode();
+        const sceneViewZ = scenePass.getViewZNode();
+
+        const blurPass1 = boxBlur(sceneColor, { size: uniform(6.0), separation: uniform(1.5) });
+        const sceneBlurred = boxBlur(blurPass1, { size: uniform(6.0), separation: uniform(1.5) });
+
+        // --- 3. 景深計算數學曲線 ---
+        const depthDiff = sceneViewZ.abs().sub(focusDistance).abs();
+        const rawBlurFactor = smoothstep(0.0, focusRange, depthDiff);
+        const smoothBlurFactor = rawBlurFactor.mul(rawBlurFactor);
+        const finalBlurFactor = smoothBlurFactor.mul(transitionProgress);
+
+        // --- 4. 混合與輸出 Pipeline ---
+        const dofPass = mix(sceneColor, sceneBlurred, finalBlurFactor);
+        const outputPass = renderOutput(dofPass);
+        const fxaaPass = fxaa(outputPass);
+
+        renderPipeline = new THREE.RenderPipeline(thisRenderer);
+        renderPipeline.outputNode = fxaaPass;
+
+        // --- 5. 動畫迴圈管理 ---
+        const renderLoop = () => {
+            if (isEffectActive && renderPipeline) {
+                renderPipeline.render();
+                frameAnimId = requestAnimationFrame(renderLoop);
+            }
+        };
+
+        // 啟動轉場專用渲染迴圈
+        renderLoop();
+
+        // --- 6. GSAP 轉場動畫 ---
+        const targetFocusDistance = 8.0;
+
+        gsap.to(focusDistance, {
+            value: targetFocusDistance,
+            duration: thisDuration,
+            ease: "power3.out"
+        });
+
+        gsap.to(focusRange, {
+            value: 12.0,
+            duration: thisDuration,
+            ease: "power2.out"
+        });
+
+        gsap.to(transitionProgress, {
+            value: 0.0,
+            duration: thisDuration,
+            ease: "power2.inOut",
+            onComplete: () => {
+            // 停止獨立迴圈
+            isEffectActive = false;
+            if (frameAnimId) cancelAnimationFrame(frameAnimId);
+            
+                // 安全釋放 WebGPU Pipeline 記憶體
+                if (renderPipeline) {
+                    renderPipeline.dispose();
+                    renderPipeline = null;
+                }
+            
+                // 完成 Promise 通知外部主程式
+                resolve();
+            }
+        });
+    });
 }
