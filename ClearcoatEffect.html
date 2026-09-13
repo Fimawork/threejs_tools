@@ -1,0 +1,240 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Clearcoat Effect | fx_materials</title>
+		<style type="text/css">
+			@import url('/fx_ui.css');
+
+			*{ 
+				box-sizing: border-box; 
+				margin: 0; 
+				padding: 0; 
+			}
+
+    		body { 
+				display: flex; 
+				width: 100vw; 
+				height: 100vh; 
+				overflow: hidden; 
+			}
+    
+    		/* 左側程式碼編輯區 */
+    		#editor-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  background: #1e1e1e;
+    		}
+
+    		/* 右側 Three.js 渲染區 */
+    		#render-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  position: relative;
+    		}
+    
+    		canvas { 
+				width: 100%; 
+				height: 100%; 
+				display: block; 
+			}
+
+		</style>
+
+		<script type="importmap">
+			{
+			  "imports": {
+			    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js",
+			    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+			  }
+			}
+		</script>
+	</head>
+
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+		<div id="editor-container"></div>
+  		<div id="render-container"></div>
+
+		<script type="module">
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import * as FX from '/fx_functions.js';
+			import * as FXM from '/fx_materials.js';
+			import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+			let scene, camera, renderer, controls;
+			let threeContainer = document.getElementById("render-container");
+
+			let clearcoat_model = new THREE.Object3D();
+
+			const CameraDefaultPos = new THREE.Vector3(0, 5, 12);
+			const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+			init();
+			
+			async function init() 
+			{
+				FX.SetupEnvironment("cloud");
+
+				scene = new THREE.Scene();
+				camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+				renderer = new THREE.WebGPURenderer({ antialias: true });
+				renderer.inspector = new Inspector();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+				threeContainer.appendChild(renderer.domElement);
+
+				await renderer.init();
+
+				camera.position.copy(CameraDefaultPos);
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enablePan = false;
+				controls.panSpeed = 0.4;
+				controls.enableDamping = true;
+				controls.target.copy(ControlsTargetDefaultPos);
+				controls.zoomSpeed = 0.5;
+				controls.autoRotate = false;
+				controls.update();
+
+				FX.LoadUltraHDRForWebGPU('./textures/hdri/brown_photostudio_02_1k.jpg',scene);
+				scene.environmentRotation.y  = FX.ToThreeEulerAngle(-60);
+				scene.environmentRotation.x  = FX.ToThreeEulerAngle(45);
+
+				const geometry = new THREE.SphereGeometry( 1 , 60, 60 );
+				const material=FXM.InstEtchingMaterial(0xCCCCCC,0.75,1,0.7500000000000001,false,1,"./textures/Heavy scratches.png",new THREE.Vector2(1,36),new THREE.Vector2(0,0),"./textures/Heavy scratches.png",new THREE.Vector2(1,36),1);
+				const cube = new THREE.Mesh( geometry, material );
+				scene.add( cube );
+				cube.position.x=-1.2;
+
+				const clearcoat_material=material.clone();
+
+				///1.進行clearcoat處理(亮光漆/透明金油)
+				FXM.ClearCoatEffect( clearcoat_material,1,0.05);
+
+				clearcoat_model=cube.clone();
+				clearcoat_model.material=clearcoat_material;
+				clearcoat_model.position.x=1.2;
+				scene.add( clearcoat_model );
+
+				renderer.setAnimationLoop(animate);
+				window.addEventListener('resize', onWindowResize);
+
+			}
+
+			function onWindowResize() 
+			{
+				camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+			}
+
+			function animate(timestamp) 
+			{
+				controls.update();
+				renderer.render(scene, camera);
+			}
+
+		
+const code_content = `
+		
+// ClearCoatEffect工具使用範例 
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as FX from '/threejs_tools/fx_functions.js';
+import * as FXM from '/threejs_tools/fx_materials.js';
+import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+let scene, camera, renderer, controls;
+let threeContainer = document.getElementById("render-container");
+
+let clearcoat_model = new THREE.Object3D();
+
+const CameraDefaultPos = new THREE.Vector3(0, 5, 12);
+const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+init();
+			
+async function init() 
+{
+	FX.SetupEnvironment("cloud");
+
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+	renderer = new THREE.WebGPURenderer({ antialias: true });
+	renderer.inspector = new Inspector();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+	threeContainer.appendChild(renderer.domElement);
+
+	await renderer.init();
+
+	camera.position.copy(CameraDefaultPos);
+
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.enablePan = false;
+	controls.panSpeed = 0.4;
+	controls.enableDamping = true;
+	controls.target.copy(ControlsTargetDefaultPos);
+	controls.zoomSpeed = 0.5;
+	controls.autoRotate = false;
+	controls.update();
+
+	FX.LoadUltraHDRForWebGPU('./textures/hdri/brown_photostudio_02_1k.jpg',scene);
+	scene.environmentRotation.y  = FX.ToThreeEulerAngle(-60);
+	scene.environmentRotation.x  = FX.ToThreeEulerAngle(45);
+
+	const geometry = new THREE.SphereGeometry( 1 , 60, 60 );
+	const material=FXM.InstEtchingMaterial(0xCCCCCC,0.75,1,0.7500000000000001,false,1,"./textures/Heavy scratches.png",new THREE.Vector2(1,36),new THREE.Vector2(0,"./textures/Heavy scratches.png",new THREE.Vector2(1,36),1);
+	const cube = new THREE.Mesh( geometry, material );
+	scene.add( cube );
+	cube.position.x=-1.2;
+
+	const clearcoat_material=material.clone();
+
+	///1.進行clearcoat處理(亮光漆/透明金油)
+	FXM.ClearCoatEffect( clearcoat_material,1,0.05);
+
+	clearcoat_model=cube.clone();
+	clearcoat_model.material=clearcoat_material;
+	clearcoat_model.position.x=1.2;
+	scene.add( clearcoat_model );
+
+	renderer.setAnimationLoop(animate);
+	window.addEventListener('resize', onWindowResize);
+
+}
+
+function onWindowResize() 
+{
+	camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+}
+
+function animate(timestamp) 
+{
+	controls.update();
+	renderer.render(scene, camera);
+}
+	
+`;
+
+			// 3. 載入 Monaco Editor 顯示左側程式碼
+require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+require(['vs/editor/editor.main'], function() {
+  monaco.editor.create(document.getElementById('editor-container'), {
+    value: code_content,
+    language: 'javascript',
+    theme: 'vs-dark',
+    automaticLayout: true
+  });
+});
+
+
+
+		</script>
+	</body>
+</html>

@@ -1,0 +1,220 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>fx_function api demo | template</title>
+		<style type="text/css">
+			@import url('/fx_ui.css');
+
+			*{ 
+				box-sizing: border-box; 
+				margin: 0; 
+				padding: 0; 
+			}
+
+    		body { 
+				display: flex; 
+				width: 100vw; 
+				height: 100vh; 
+				overflow: hidden; 
+			}
+    
+    		/* 左側程式碼編輯區 */
+    		#editor-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  background: #1e1e1e;
+    		}
+
+    		/* 右側 Three.js 渲染區 */
+    		#render-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  position: relative;
+    		}
+    
+    		canvas { 
+				width: 100%; 
+				height: 100%; 
+				display: block; 
+			}
+
+		</style>
+
+		<script type="importmap">
+			{
+			  "imports": {
+			    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js",
+			    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+			  }
+			}
+		</script>
+	</head>
+
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+		<div id="editor-container"></div>
+  		<div id="render-container"></div>
+		
+		<script type="module">
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import * as FX from '/fx_functions.js';
+			import * as FXM from '/fx_materials.js';
+			import * as FXUI from '/fx_hud.js';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+			let scene, camera, renderer, controls;
+			let threeContainer = document.getElementById("render-container");
+
+			const CameraDefaultPos = new THREE.Vector3(0, 0, 5);
+			const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+			let cube;
+
+			init();
+
+			async function init() {
+				FX.SetupEnvironment("cloud");
+
+				scene = new THREE.Scene();
+				camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+				renderer = new THREE.WebGPURenderer();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+				threeContainer.appendChild(renderer.domElement);
+
+				// 加入一個示範方塊
+				const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+				const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+				cube = new THREE.Mesh( geometry, material );
+				scene.add( cube );
+
+				await renderer.init();
+
+				camera.position.copy(CameraDefaultPos);
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enablePan = false;
+				controls.panSpeed = 0.4;
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.015;
+				controls.minDistance = 1;
+				controls.maxDistance = 500;
+				controls.target.copy(ControlsTargetDefaultPos);
+				controls.zoomSpeed = 0.5;
+				controls.autoRotate = false;
+				controls.update();
+
+				FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene);
+
+				renderer.setAnimationLoop(animate);
+				window.addEventListener('resize', onWindowResize);
+			}
+
+			function onWindowResize() {
+				camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+			}
+
+			function animate(timestamp) 
+			{
+				controls.update();
+				renderer.render(scene, camera);
+				cube.rotation.x+=0.01;
+				cube.rotation.y+=0.01;
+			}
+
+			
+			const code_content = `
+		
+// Template 
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as FX from './fx_functions.js';
+import * as FXM from './fx_materials.js';
+import * as FXUI from './fx_hud.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+let scene, camera, renderer, controls;
+let threeContainer = document.getElementById("render-container");
+
+const CameraDefaultPos = new THREE.Vector3(0, 0, 5);
+const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+let cube;
+
+init();
+
+async function init() {
+	FX.SetupEnvironment("cloud");
+
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+	renderer = new THREE.WebGPURenderer();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+	threeContainer.appendChild(renderer.domElement);
+
+	// 加入一個示範方塊
+	const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+	const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+	cube = new THREE.Mesh( geometry, material );
+	scene.add( cube );
+
+	FX.LoadUltraHDRForWebGPU('./textures/hdri/studio_small_09_2k.jpg', scene);
+
+	await renderer.init();
+
+	camera.position.copy(CameraDefaultPos);
+
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.enablePan = false;
+	controls.panSpeed = 0.4;
+	controls.enableDamping = true;
+	controls.dampingFactor = 0.015;
+	controls.minDistance = 1;
+	controls.maxDistance = 500;
+	controls.target.copy(ControlsTargetDefaultPos);
+	controls.zoomSpeed = 0.5;
+	controls.autoRotate = false;
+	controls.update();
+
+	FX.LoadUltraHDRForWebGPU('./textures/hdri/studio_small_09_2k.jpg', scene);
+
+	renderer.setAnimationLoop(animate);
+	window.addEventListener('resize', onWindowResize);
+}
+
+function onWindowResize() 
+{
+	camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+}
+
+function animate(timestamp) 
+{
+	controls.update();
+	renderer.render(scene, camera);
+	cube.rotation.x+=0.01;
+	cube.rotation.y+=0.01;
+}
+`;
+
+			// 3. 載入 Monaco Editor 顯示左側程式碼
+require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+require(['vs/editor/editor.main'], function() {
+  monaco.editor.create(document.getElementById('editor-container'), {
+    value: code_content,
+    language: 'javascript',
+    theme: 'vs-dark',
+    automaticLayout: true
+  });
+});
+
+
+
+		</script>
+	</body>
+</html>

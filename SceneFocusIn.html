@@ -1,0 +1,276 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Scene Focus In | fx_functions</title>
+		<style type="text/css">
+			@import url('/fx_ui.css');
+
+			*{ 
+				box-sizing: border-box; 
+				margin: 0; 
+				padding: 0; 
+			}
+
+    		body { 
+				display: flex; 
+				width: 100vw; 
+				height: 100vh; 
+				overflow: hidden; 
+			}
+    
+    		/* 左側程式碼編輯區 */
+    		#editor-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  background: #1e1e1e;
+    		}
+
+    		/* 右側 Three.js 渲染區 */
+    		#render-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  position: relative;
+    		}
+    
+    		canvas { 
+				width: 100%; 
+				height: 100%; 
+				display: block; 
+			}
+
+			.btn_holder
+			{
+				position: absolute;
+				bottom: 30px;
+				width: 100%;
+				height: 60px;
+				display: flex;
+				justify-content: center;
+			}
+
+			.controller_btn
+			{
+				width: 90px;
+				height: 60px;
+				cursor: pointer;
+                border-radius: 6px;
+				margin: 0 6px;
+                display: flex;
+				justify-content: center;
+                flex-direction:column;
+                text-align:center;
+				font-size: 18px;
+				font-family:'Times New Roman', Times, serif;
+			}
+
+			.controller_btn:hover
+			{
+				color: white;
+				background-color: #00eeff;
+			}
+
+		</style>
+
+		<script type="importmap">
+			{
+			  "imports": {
+			    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js",
+			    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+			  }
+			}
+		</script>
+	</head>
+
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+		<div id="editor-container"></div>
+  		<div id="render-container">
+			<div class="btn_holder">
+				<button class="controller_btn" id="trigger">Trigger</button>
+			</div>
+		</div>
+
+		<script type="module">
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import * as FX from '/fx_functions.js';
+			import * as FXM from '/fx_materials.js';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+			let scene, camera, renderer, controls;
+			let threeContainer = document.getElementById("render-container");
+			let _trigger = document.getElementById("trigger");
+
+			let main_model = new THREE.Object3D();
+
+			const CameraDefaultPos = new THREE.Vector3(0, 5, 7.5);
+			const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+			init();
+			
+			async function init() 
+			{
+				FX.SetupEnvironment("cloud");
+
+				scene = new THREE.Scene();
+				camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+				renderer = new THREE.WebGPURenderer({ antialias: true });
+				renderer.inspector = new Inspector();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+				threeContainer.appendChild(renderer.domElement);
+
+				await renderer.init();
+
+				camera.position.copy(CameraDefaultPos);
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enablePan = false;
+				controls.panSpeed = 0.4;
+				controls.enableDamping = true;
+				controls.target.copy(ControlsTargetDefaultPos);
+				controls.zoomSpeed = 0.5;
+				controls.autoRotate = true;
+				controls.update();
+
+				FX.LoadUltraHDRForWebGPU('./textures/hdri/studio_small_09_2k.jpg',scene);
+
+				const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+				const material=FXM.InstMaterial(0xA6A0A0,0.3,0.731,0,1.5,0.5,false,1,true);
+				const cube = new THREE.Mesh( geometry, material );
+				scene.add( cube );
+
+				renderer.setAnimationLoop(animate);
+				window.addEventListener('resize', onWindowResize);
+
+				///1.觸發SceneFocusIn(入場對焦效果)
+				FX.SceneFocusInEffect(scene,camera,renderer,10);
+
+				///2.按鍵觸發方式
+				_trigger.addEventListener('click', () => {
+								
+					FX.SceneFocusInEffect(scene,camera,renderer,10);
+
+				});
+
+			}
+
+			function onWindowResize() 
+			{
+				camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+			}
+
+			function animate(timestamp) 
+			{
+				controls.update();
+				renderer.render(scene, camera);
+			}
+
+		
+const code_content = `
+		
+// SceneFocusIn工具使用範例 
+
+/*<!-- HTML element -->
+<button class="controller_btn" id="trigger">Trigger</button>
+*/
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as FX from '/fx_functions.js';
+import * as FXM from '/fx_materials.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+let scene, camera, renderer, controls;
+let threeContainer = document.getElementById("render-container");
+let _trigger = document.getElementById("trigger");
+
+let main_model = new THREE.Object3D();
+
+const CameraDefaultPos = new THREE.Vector3(0, 5, 7.5);
+const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+init();
+			
+async function init() 
+{
+	FX.SetupEnvironment("cloud");
+
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+	renderer = new THREE.WebGPURenderer({ antialias: true });
+	renderer.inspector = new Inspector();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+	threeContainer.appendChild(renderer.domElement);
+				
+	await renderer.init();
+
+	camera.position.copy(CameraDefaultPos);
+
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.enablePan = false;
+	controls.panSpeed = 0.4;
+	controls.enableDamping = true;
+	controls.target.copy(ControlsTargetDefaultPos);
+	controls.zoomSpeed = 0.5;
+	controls.autoRotate = true;
+	controls.update();
+
+	FX.LoadUltraHDRForWebGPU('./textures/hdri/studio_small_09_2k.jpg',scene);
+
+	const geometry = new THREE.BoxGeometry( 1, 1, 1 );
+	const material=FXM.InstMaterial(0xA6A0A0,0.3,0.731,0,1.5,0.5,false,1,true);
+	const cube = new THREE.Mesh( geometry, material );
+	scene.add( cube );
+
+	renderer.setAnimationLoop(animate);
+	window.addEventListener('resize', onWindowResize);
+	
+	///1.觸發SceneFocusIn(入場對焦效果)
+	FX.SceneFocusInEffect(scene,camera,renderer,10);
+
+	///2.按鍵觸發方式
+	_trigger.addEventListener('click', () => {
+								
+		FX.SceneFocusInEffect(scene,camera,renderer,10);
+
+	});
+}
+
+function onWindowResize() 
+{
+	camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+}
+
+function animate(timestamp) 
+{
+	controls.update();
+	renderer.render(scene, camera);
+}
+	
+`;
+
+			// 3. 載入 Monaco Editor 顯示左側程式碼
+require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+require(['vs/editor/editor.main'], function() {
+  monaco.editor.create(document.getElementById('editor-container'), {
+    value: code_content,
+    language: 'javascript',
+    theme: 'vs-dark',
+    automaticLayout: true
+  });
+});
+
+
+
+		</script>
+	</body>
+</html>

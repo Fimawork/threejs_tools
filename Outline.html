@@ -1,0 +1,401 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Outline | fx_functions</title>
+		<style type="text/css">
+			@import url('./fx_ui.css');
+
+			*{ 
+				box-sizing: border-box; 
+				margin: 0; 
+				padding: 0; 
+			}
+
+    		body { 
+				display: flex; 
+				width: 100vw; 
+				height: 100vh; 
+				overflow: hidden; 
+			}
+    
+    		/* 左側程式碼編輯區 */
+    		#editor-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  background: #1e1e1e;
+    		}
+
+    		/* 右側 Three.js 渲染區 */
+    		#render-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  position: relative;
+    		}
+    
+    		canvas { 
+				width: 100%; 
+				height: 100%; 
+				display: block; 
+			}
+
+			.btn_holder
+			{
+				position: absolute;
+				bottom: 30px;
+				width: 100%;
+				height: 60px;
+				display: flex;
+				justify-content: center;
+			}
+
+			.controller_btn
+			{
+				width: 60px;
+				height: 60px;
+				cursor: pointer;
+                border-radius: 6px;
+				margin: 0 6px;
+                display: flex;
+				justify-content: center;
+                flex-direction:column;
+                text-align:center;
+				font-size: 30px;
+				font-family:'Times New Roman', Times, serif;
+			}
+
+			.controller_btn:hover
+			{
+				color: white;
+				background-color: #00eeff;
+			}
+
+		</style>
+
+		<script type="importmap">
+			{
+			  "imports": {
+			    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js",
+			    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+			  }
+			}
+		</script>
+	</head>
+
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+		<div id="editor-container"></div>
+  		<div id="render-container">
+			<div class="btn_holder">
+				<button class="controller_btn" id="char_f">f</button>
+				<button class="controller_btn" id="char_i">i</button>
+				<button class="controller_btn" id="char_m">m</button>
+				<button class="controller_btn" id="char_a">a</button>
+				<button class="controller_btn" id="char_w">w</button>
+				<button class="controller_btn" id="char_o">o</button>
+				<button class="controller_btn" id="char_r">r</button>
+				<button class="controller_btn" id="char_k">k</button>
+			</div>
+		</div>
+		
+		<script type="module">
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import * as FX from './fx_functions.js';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+			let scene, camera, renderer, controls;
+			let threeContainer = document.getElementById("render-container");
+
+			const CameraDefaultPos = new THREE.Vector3(0, 0, 30);
+			const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+			let main_model = new THREE.Object3D();
+
+			//宣告變數，將套用outline效果進行分組
+			let model_f = new THREE.Group();
+			let model_i = new THREE.Group();
+			let model_m = new THREE.Group();
+			let model_a = new THREE.Group();
+			let model_w = new THREE.Group();
+			let model_o = new THREE.Group();
+			let model_r = new THREE.Group();
+			let model_k = new THREE.Group();
+
+			let _char_f = document.getElementById("char_f");
+			let _char_i = document.getElementById("char_i");
+			let _char_m = document.getElementById("char_m");
+			let _char_a = document.getElementById("char_a");
+			let _char_w = document.getElementById("char_w");
+			let _char_o = document.getElementById("char_o");
+			let _char_r = document.getElementById("char_r");
+			let _char_k = document.getElementById("char_k");
+
+			init();
+
+			async function init() {
+				FX.SetupEnvironment("cloud");
+
+				scene = new THREE.Scene();
+				camera = new THREE.PerspectiveCamera(45, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+				renderer = new THREE.WebGPURenderer({ antialias: true });
+				renderer.inspector = new Inspector();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+				threeContainer.appendChild(renderer.domElement);
+
+				scene.background = new THREE.Color(0x999999); 
+
+				await renderer.init();
+
+				camera.position.copy(CameraDefaultPos);
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enablePan = true;
+				controls.panSpeed = 0.4;
+				controls.enableDamping = true;
+				controls.target.copy(ControlsTargetDefaultPos);
+				controls.zoomSpeed = 0.5;
+				controls.update();
+
+				FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene);
+
+				const loader_logo = new GLTFLoader();
+				loader_logo.setDRACOLoader(FX.dracoLoader);
+				loader_logo.load('/models/logo_fimawork.glb', function ( gltf ) {
+
+						const model = gltf.scene;
+						model.position.set(0, 0, 0);
+						model.scale.set(1, 1, 0.5);
+
+						model.traverse(function (object) {
+							if (object.name.includes("char_f"))FX.ReturnBufferGeometry(object, null, model_f, scene);
+							if (object.name.includes("char_i"))FX.ReturnBufferGeometry(object, null, model_i, scene);
+							if (object.name.includes("char_m"))FX.ReturnBufferGeometry(object, null, model_m, scene);
+							if (object.name.includes("char_a"))FX.ReturnBufferGeometry(object, null, model_a, scene);
+							if (object.name.includes("char_w"))FX.ReturnBufferGeometry(object, null, model_w, scene);
+							if (object.name.includes("char_o"))FX.ReturnBufferGeometry(object, null, model_o, scene);
+							if (object.name.includes("char_r"))FX.ReturnBufferGeometry(object, null, model_r, scene);
+							if (object.name.includes("char_k"))FX.ReturnBufferGeometry(object, null, model_k, scene);
+						});
+
+						main_model.add(model_f).add(model_i).add(model_m).add(model_a).add(model_w).add(model_o).add(model_r).add(model_k);
+
+						scene.add(main_model);
+					}
+				);
+
+				///1.導入Outline工具
+				FX.SetupOutlinePass({edgeStrength_value:5.0,thisScene:scene,thisCamera:camera,thisRenderer:renderer});
+
+				///2.設置Outline產生條件
+				_char_f.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_f );});
+				_char_f.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+				_char_i.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_i );});
+				_char_i.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+				_char_m.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_m );});
+				_char_m.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+				_char_a.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_a );});
+				_char_a.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+				_char_w.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_w );});
+				_char_w.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+				_char_o.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_o );});
+				_char_o.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+				_char_r.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_r );});
+				_char_r.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+				_char_k.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_k );});
+				_char_k.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+				renderer.setAnimationLoop(animate);
+				window.addEventListener('resize', onWindowResize);
+			}
+
+			function onWindowResize() 
+			{
+				camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+			}
+
+			function animate(timestamp) 
+			{
+				controls.update();
+				renderer.render(scene, camera);
+
+				///3.使用Outline時必須載入renderPipeline
+				FX.renderPipeline.render();
+			}
+
+			
+			const code_content = `
+		
+// Outline工具使用範例
+
+/*<!-- HTML element -->
+<button class="controller_btn" id="scene_1">1</button>
+<button class="controller_btn" id="scene_2">2</button>
+<button class="controller_btn" id="scene_3">3</button>
+*/
+
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as FX from '/fx_functions.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+let scene, camera, renderer, controls;
+let threeContainer = document.getElementById("render-container");
+
+const CameraDefaultPos = new THREE.Vector3(0, 0, 30);
+const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+let main_model = new THREE.Object3D();
+
+//宣告變數，將套用outline效果進行分組
+let model_f = new THREE.Group();
+let model_i = new THREE.Group();
+let model_m = new THREE.Group();
+let model_a = new THREE.Group();
+let model_w = new THREE.Group();
+let model_o = new THREE.Group();
+let model_r = new THREE.Group();
+let model_k = new THREE.Group();
+
+let _char_f = document.getElementById("char_f");
+let _char_i = document.getElementById("char_i");
+let _char_m = document.getElementById("char_m");
+let _char_a = document.getElementById("char_a");
+let _char_w = document.getElementById("char_w");
+let _char_o = document.getElementById("char_o");
+let _char_r = document.getElementById("char_r");
+let _char_k = document.getElementById("char_k");
+
+init();
+
+async function init() {
+	FX.SetupEnvironment("cloud");
+
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera(45, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+	renderer = new THREE.WebGPURenderer({ antialias: true });
+	renderer.inspector = new Inspector();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+	threeContainer.appendChild(renderer.domElement);
+
+	scene.background = new THREE.Color(0x999999); 
+
+	await renderer.init();
+
+	camera.position.copy(CameraDefaultPos);
+
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.enablePan = true;
+	controls.panSpeed = 0.4;
+	controls.enableDamping = true;
+	controls.target.copy(ControlsTargetDefaultPos);
+	controls.zoomSpeed = 0.5;
+	controls.update();
+
+	FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene);
+
+	const loader_logo = new GLTFLoader();
+	loader_logo.setDRACOLoader(FX.dracoLoader);
+	loader_logo.load('/models/logo_fimawork.glb', function ( gltf ) {
+
+		const model = gltf.scene;
+		model.position.set(0, 0, 0);
+		model.scale.set(1, 1, 0.5);
+
+		model.traverse(function (object) {
+			if (object.name.includes("char_f"))FX.ReturnBufferGeometry(object, null, model_f, scene);
+			if (object.name.includes("char_i"))FX.ReturnBufferGeometry(object, null, model_i, scene);
+			if (object.name.includes("char_m"))FX.ReturnBufferGeometry(object, null, model_m, scene);
+			if (object.name.includes("char_a"))FX.ReturnBufferGeometry(object, null, model_a, scene);
+			if (object.name.includes("char_w"))FX.ReturnBufferGeometry(object, null, model_w, scene);
+			if (object.name.includes("char_o"))FX.ReturnBufferGeometry(object, null, model_o, scene);
+			if (object.name.includes("char_r"))FX.ReturnBufferGeometry(object, null, model_r, scene);
+			if (object.name.includes("char_k"))FX.ReturnBufferGeometry(object, null, model_k, scene);
+		});
+
+			main_model.add(model_f).add(model_i).add(model_m).add(model_a).add(model_w).add(model_o).add(model_r).add(model_k);
+
+			scene.add(main_model);
+		}
+	);
+
+	///1.導入Outline工具
+	FX.SetupOutlinePass({edgeStrength_value:5.0,thisScene:scene,thisCamera:camera,thisRenderer:renderer});
+
+	///2.設置Outline產生條件
+	_char_f.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_f );});
+	_char_f.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+	_char_i.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_i );});
+	_char_i.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+	_char_m.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_m );});
+	_char_m.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+	_char_a.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_a );});
+	_char_a.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+	_char_w.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_w );});
+	_char_w.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+	_char_o.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_o );});
+	_char_o.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+	_char_r.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_r );});
+	_char_r.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+	_char_k.addEventListener("pointerover", () => {FX.SetOutlineEffect( model_k );});
+	_char_k.addEventListener("pointerleave", () => {FX.SetOutlineEffect( null );});
+
+	renderer.setAnimationLoop(animate);
+	window.addEventListener('resize', onWindowResize);
+}
+
+function onWindowResize() 
+{
+	camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+}
+
+function animate(timestamp) 
+{
+	controls.update();
+	renderer.render(scene, camera);
+
+	///3.使用Outline時必須載入renderPipeline
+	FX.renderPipeline.render();
+}
+
+`;
+
+			// 3. 載入 Monaco Editor 顯示左側程式碼
+require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+require(['vs/editor/editor.main'], function() {
+  monaco.editor.create(document.getElementById('editor-container'), {
+    value: code_content,
+    language: 'javascript',
+    theme: 'vs-dark',
+    automaticLayout: true
+  });
+});
+
+
+
+		</script>
+	</body>
+</html>

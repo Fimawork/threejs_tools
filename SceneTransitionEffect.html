@@ -1,0 +1,488 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>SceneTransitionEffect | fx_functions</title>
+		<style type="text/css">
+			@import url('/fx_ui.css');
+
+			*{ 
+				box-sizing: border-box; 
+				margin: 0; 
+				padding: 0; 
+			}
+
+    		body { 
+				display: flex; 
+				width: 100vw; 
+				height: 100vh; 
+				overflow: hidden; 
+			}
+    
+    		/* 左側程式碼編輯區 */
+    		#editor-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  background: #1e1e1e;
+    		}
+
+    		/* 右側 Three.js 渲染區 */
+    		#render-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  position: relative;
+    		}
+    
+    		canvas { 
+				width: 100%; 
+				height: 100%; 
+				display: block; 
+			}
+
+			.btn_holder
+			{
+				position: absolute;
+				bottom: 30px;
+				width: 100%;
+				height: 60px;
+				display: flex;
+				justify-content: center;
+			}
+
+			.controller_btn
+			{
+				width: 60px;
+				height: 60px;
+				cursor: pointer;
+                border-radius: 6px;
+				margin: 0 6px;
+                display: flex;
+				justify-content: center;
+                flex-direction:column;
+                text-align:center;
+				font-size: 30px;
+				font-family:'Times New Roman', Times, serif;
+			}
+
+			.controller_btn:hover
+			{
+				color: white;
+				background-color: #00eeff;
+			}
+
+		</style>
+
+		<script type="importmap">
+			{
+			  "imports": {
+			    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js",
+			    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+			  }
+			}
+		</script>
+	</head>
+
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+		<div id="editor-container"></div>
+  		<div id="render-container">
+			<div class="btn_holder">
+				<button class="controller_btn" id="scene_1">1</button>
+				<button class="controller_btn" id="scene_2">2</button>
+				<button class="controller_btn" id="scene_3">3</button>
+			</div>
+		</div>
+		
+		
+		<script type="module">
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import * as FX from '/fx_functions.js';
+			import * as FXM from '/fx_materials.js';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+			import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+			let scene, camera, renderer, controls;
+			let threeContainer = document.getElementById("render-container");
+
+			///1.宣告轉場scene
+			let scene_next;
+
+			///2.依需求宣告mesh變數數量
+			let current_meshA, next_meshA, current_meshB, next_meshB, current_meshC, next_meshC;
+
+			///3.依需求材質組合變數數量
+			let material_part_a = [];
+			let material_part_b = [];
+			let material_part_c = [];
+
+			let main_model = new THREE.Object3D();
+
+			///4.宣告轉場物件
+			let model_next  = new THREE.Object3D();
+
+			const CameraDefaultPos = new THREE.Vector3(1.5, 1.5, 3);
+			const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+
+			let _scene_1 = document.getElementById("scene_1");
+			let _scene_2 = document.getElementById("scene_2");
+			let _scene_3 = document.getElementById("scene_3");
+			
+
+			init();
+
+			async function init() 
+			{
+				FX.SetupEnvironment("cloud");
+
+				scene = new THREE.Scene();
+
+				///5.創建scene
+				scene_next = new THREE.Scene();
+
+				camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+				renderer = new THREE.WebGPURenderer();
+				renderer.inspector = new Inspector();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+				threeContainer.appendChild(renderer.domElement);
+				
+				///6.導入Transition工具模組，可更換texture產生不同轉場效果
+				FX.SetupTransitionModule(scene,scene_next,camera,renderer,'./textures/transition3.png')
+
+				await renderer.init();
+
+				camera.position.copy(CameraDefaultPos);
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enablePan = true;
+				controls.panSpeed = 0.4;
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.015;
+				controls.minDistance = 1;
+				controls.maxDistance = 500;
+				controls.target.copy(ControlsTargetDefaultPos);
+				controls.zoomSpeed = 0.5;
+				controls.autoRotate = false;
+				controls.update();
+
+				///7.在第二個場景加入相同的環境光源
+				scene.background = new THREE.Color(0x999999); 
+				scene_next.background = new THREE.Color(0x999999); 
+				FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene);
+				FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene_next);
+
+				const loader_logo = new GLTFLoader();
+				loader_logo.setDRACOLoader(FX.dracoLoader);
+				loader_logo.load('/models/logo_type_B.glb', function ( gltf ) {
+
+					const model = gltf.scene;
+					model.position.set(0, 0, 0);
+					model.scale.set(1, 1,1);
+
+					///第一組材質球
+					const champagne_material=FXM.InstMaterial(0xEEEBD3,0.3,0.9,0,1.5,0.5,false,1,true);//for part_a
+					const pink_material=FXM.InstMaterial(0xFE90BC,0.3,0.9,0,1.5,0.5,false,1,true);//for part_b
+					const blue_material=FXM.InstMaterial(0xdbf7ff,0.3,0.9,0,1.5,0.5,false,1,true);//for part_c
+
+					///第二組材質球
+					const black_material=FXM.InstMaterial(0x000000,0.3,0.9,0,1.5,0.5,false,1,true);//for part_a
+					const yellow_material=FXM.InstMaterial(0xffff00,0.3,0.9,0,1.5,0.5,false,1,true);//for part_b
+					const red_material=FXM.InstMaterial(0xff0000,0.3,0.9,0,1.5,0.5,false,1,true);//for part_c
+
+					///第三組材質球
+					const purple_material=FXM.InstMaterial(0x9900ff,0.3,0.9,0,1.5,0.5,false,1,true);//for part_a
+					const brown_material=FXM.InstMaterial(0xb45f06,0.3,0.9,0,1.5,0.5,false,1,true);//for part_b
+					const green_material=FXM.InstMaterial(0x38761d,0.3,0.9,0,1.5,0.5,false,1,true);//for part_c
+
+					///套用第一組材質球
+					model.traverse(function (object) {
+						if (object.name.includes("part_a"))FX.ReturnBufferGeometry(object, champagne_material, main_model, scene);
+						if (object.name.includes("part_b"))FX.ReturnBufferGeometry(object, pink_material, main_model, scene);
+						if (object.name.includes("part_c"))FX.ReturnBufferGeometry(object, blue_material, main_model, scene);
+					});
+
+						
+					scene.add(main_model);
+
+					///8.複製一份作為model_next，並加入第二個場景(scene_next)
+					model_next = main_model.clone();
+					scene_next.add(model_next);
+
+					///9.綁定main_model的mesh變數，經ReturnBufferGeometry處理後名稱前方需加上"BufferGeometry_"
+					main_model.traverse(function (object) {
+						if (object.name === "BufferGeometry_part_a") current_meshA = object;
+						if (object.name === "BufferGeometry_part_b") current_meshB = object;
+						if (object.name === "BufferGeometry_part_c") current_meshC = object;
+					});
+
+					///10.綁定main_model的mesh變數，經ReturnBufferGeometry處理後名稱前方需加上"BufferGeometry_"
+					model_next.traverse(function (object) {
+						if (object.name === "BufferGeometry_part_a") next_meshA = object;
+						if (object.name === "BufferGeometry_part_b") next_meshB = object;
+						if (object.name === "BufferGeometry_part_c") next_meshC = object;
+					});
+
+					///11.設置mesh & 材質球組合，轉場時對應相同順序
+					FX.mesh_list[0]={current:current_meshA,next:next_meshA};
+					FX.mesh_list[1]={current:current_meshB,next:next_meshB};
+					FX.mesh_list[2]={current:current_meshC,next:next_meshC};
+
+					material_part_a = [
+						champagne_material,
+						black_material,
+						purple_material,
+					];
+
+					material_part_b = [
+						pink_material,
+						yellow_material,
+						brown_material,
+					];
+
+					material_part_c = [
+						blue_material,
+						red_material,
+						green_material,
+					];
+
+					FX.material_list[0]=material_part_a;
+					FX.material_list[1]=material_part_b;
+					FX.material_list[2]=material_part_c;
+				});
+
+				///觸發轉場功能按鍵
+				_scene_1.addEventListener('click', () => {FX.SceneTransitionEffect(0);});
+				_scene_2.addEventListener('click', () => {FX.SceneTransitionEffect(1);});
+				_scene_3.addEventListener('click', () => {FX.SceneTransitionEffect(2);});
+
+				renderer.setAnimationLoop(animate);
+				window.addEventListener('resize', onWindowResize);
+			}
+
+			function onWindowResize() 
+			{
+				camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+			}
+
+			function animate(timestamp) 
+			{
+				controls.update();
+				renderer.render(scene, camera);
+
+				///12.使用SceneTransitionEffect必須載入renderPipeline
+				FX.renderPipeline.render();
+			}
+
+			
+			const code_content = `
+		
+// SceneTransitionEffect工具使用範例
+
+/*<!-- HTML element -->
+<button class="controller_btn" id="scene_1">1</button>
+<button class="controller_btn" id="scene_2">2</button>
+<button class="controller_btn" id="scene_3">3</button>
+*/
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as FX from '/fx_functions.js';
+import * as FXM from '/fx_materials.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+let scene, camera, renderer, controls;
+let threeContainer = document.getElementById("render-container");
+
+///1.宣告轉場scene
+let scene_next;
+
+///2.依需求宣告mesh變數數量
+let current_meshA, next_meshA, current_meshB, next_meshB, current_meshC, next_meshC;
+
+///3.依需求材質組合變數數量
+let material_part_a = [];
+let material_part_b = [];
+let material_part_c = [];
+
+let main_model = new THREE.Object3D();
+
+///4.宣告轉場物件
+let model_next  = new THREE.Object3D();
+
+const CameraDefaultPos = new THREE.Vector3(1.5, 1.5, 3);
+const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+
+let _scene_1 = document.getElementById("scene_1");
+let _scene_2 = document.getElementById("scene_2");
+let _scene_3 = document.getElementById("scene_3");
+			
+
+init();
+
+async function init() 
+{
+	FX.SetupEnvironment("cloud");
+
+	scene = new THREE.Scene();
+
+	///5.創建scene
+	scene_next = new THREE.Scene();
+
+	camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+	renderer = new THREE.WebGPURenderer();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+	threeContainer.appendChild(renderer.domElement);
+				
+	///6.導入Transition工具模組，可更換texture產生不同轉場效果
+	FX.SetupTransitionModule(scene,scene_next,camera,renderer,'./textures/transition3.png')
+
+	await renderer.init();
+
+	camera.position.copy(CameraDefaultPos);
+
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.enablePan = true;
+	controls.panSpeed = 0.4;
+	controls.enableDamping = true;
+	controls.dampingFactor = 0.015;
+	controls.minDistance = 1;
+	controls.maxDistance = 500;
+	controls.target.copy(ControlsTargetDefaultPos);
+	controls.zoomSpeed = 0.5;
+	controls.autoRotate = false;
+	controls.update();
+
+	///7.在第二個場景加入相同的環境光源
+	scene.background = new THREE.Color(0x999999); 
+	scene_next.background = new THREE.Color(0x999999); 
+	FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene);
+	FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene_next);
+
+	const loader_logo = new GLTFLoader();
+	loader_logo.setDRACOLoader(FX.dracoLoader);
+	loader_logo.load('/models/logo_type_B.glb', function ( gltf ) {
+
+		const model = gltf.scene;
+		model.position.set(0, 0, 0);
+		model.scale.set(1, 1,1);
+
+		///第一組材質球
+		const champagne_material=FXM.InstMaterial(0xEEEBD3,0.3,0.9,0,1.5,0.5,false,1,true);//for part_a
+		const pink_material=FXM.InstMaterial(0xFE90BC,0.3,0.9,0,1.5,0.5,false,1,true);//for part_b
+		const blue_material=FXM.InstMaterial(0xdbf7ff,0.3,0.9,0,1.5,0.5,false,1,true);//for part_c
+
+		///第二組材質球
+		const black_material=FXM.InstMaterial(0x000000,0.3,0.9,0,1.5,0.5,false,1,true);//for part_a
+		const yellow_material=FXM.InstMaterial(0xffff00,0.3,0.9,0,1.5,0.5,false,1,true);//for part_b
+		const red_material=FXM.InstMaterial(0xff0000,0.3,0.9,0,1.5,0.5,false,1,true);//for part_c
+
+		///第三組材質球
+		const purple_material=FXM.InstMaterial(0x9900ff,0.3,0.9,0,1.5,0.5,false,1,true);//for part_a
+		const brown_material=FXM.InstMaterial(0xb45f06,0.3,0.9,0,1.5,0.5,false,1,true);//for part_b
+		const green_material=FXM.InstMaterial(0x38761d,0.3,0.9,0,1.5,0.5,false,1,true);//for part_c
+
+		///套用第一組材質球
+		model.traverse(function (object) {
+			if (object.name.includes("part_a"))FX.ReturnBufferGeometry(object, champagne_material, main_model, scene);
+			if (object.name.includes("part_b"))FX.ReturnBufferGeometry(object, pink_material, main_model, scene);
+			if (object.name.includes("part_c"))FX.ReturnBufferGeometry(object, blue_material, main_model, scene);
+		});
+
+						
+		scene.add(main_model);
+
+		///8.複製一份作為model_next，並加入第二個場景(scene_next)
+		model_next = main_model.clone();
+		scene_next.add(model_next);
+
+		///9.綁定main_model的mesh變數，經ReturnBufferGeometry處理後名稱前方需加上"BufferGeometry_"
+		main_model.traverse(function (object) {
+			if (object.name === "BufferGeometry_part_a") current_meshA = object;
+			if (object.name === "BufferGeometry_part_b") current_meshB = object;
+			if (object.name === "BufferGeometry_part_c") current_meshC = object;
+		});
+
+		///10.綁定main_model的mesh變數，經ReturnBufferGeometry處理後名稱前方需加上"BufferGeometry_"
+		model_next.traverse(function (object) {
+			if (object.name === "BufferGeometry_part_a") next_meshA = object;
+			if (object.name === "BufferGeometry_part_b") next_meshB = object;
+			if (object.name === "BufferGeometry_part_c") next_meshC = object;
+		});
+
+		///11.設置mesh & 材質球組合，轉場時對應相同順序
+		FX.mesh_list[0]={current:current_meshA,next:next_meshA};
+		FX.mesh_list[1]={current:current_meshB,next:next_meshB};
+		FX.mesh_list[2]={current:current_meshC,next:next_meshC};
+
+		material_part_a = [
+			champagne_material,
+			black_material,
+			purple_material,
+		];
+
+		material_part_b = [
+			pink_material,
+			yellow_material,
+			brown_material,
+		];
+
+		material_part_c = [
+			blue_material,
+			red_material,
+			green_material,
+		];
+
+		FX.material_list[0]=material_part_a;
+		FX.material_list[1]=material_part_b;
+		FX.material_list[2]=material_part_c;
+	});
+
+	///觸發轉場功能按鍵
+	_scene_1.addEventListener('click', () => {FX.SceneTransitionEffect(0);});
+	_scene_2.addEventListener('click', () => {FX.SceneTransitionEffect(1);});
+	_scene_3.addEventListener('click', () => {FX.SceneTransitionEffect(2);});
+
+	renderer.setAnimationLoop(animate);
+	window.addEventListener('resize', onWindowResize);
+}
+
+function onWindowResize() 
+{
+	camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+}
+
+function animate(timestamp) 
+{
+	controls.update();
+	renderer.render(scene, camera);
+
+	///12.使用SceneTransitionEffect必須載入renderPipeline
+	FX.renderPipeline.render();
+}
+
+`;
+
+			// 3. 載入 Monaco Editor 顯示左側程式碼
+require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+require(['vs/editor/editor.main'], function() {
+  monaco.editor.create(document.getElementById('editor-container'), {
+    value: code_content,
+    language: 'javascript',
+    theme: 'vs-dark',
+    automaticLayout: true
+  });
+});
+
+
+
+		</script>
+	</body>
+</html>

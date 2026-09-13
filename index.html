@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Examples | fimawork</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="fx_ui.css">
+    <style>
+        body { font-family: "Roboto", "Helvetica Neue", Arial, sans-serif; text-align: center; padding: 105px 30px 50px; background: #f5f5f5; color: #333; }
+        h1 { margin-bottom: 10px; }
+        .info { color: #666; margin-bottom: 40px; }
+        .menu-container { display: flex; justify-content: center; gap:15px; flex-wrap: wrap; }
+        .menu-card { 
+            background: #ffffff; 
+            padding: 20px; 
+            border-radius: 12px; 
+            border: 1px solid #e5e7eb; /* 增加極淺邊框，明確結構 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); 
+            text-decoration: none; 
+            color: #333333; 
+            font-weight: 600; 
+            font-size: 1.1rem; 
+    
+            /* 啟用硬體加速，讓懸停過渡更平滑 */
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), 
+                        box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+    
+            /* 響應式寬度調整：桌機維持約 260px，手機會自適應 */
+            width: 100%;
+            max-width: 300px;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+
+        .menu-card:hover { 
+            transform: translateY(-6px); 
+            box-shadow: 0 12px 20px -3px rgba(0, 123, 255, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05); 
+            border-color: var(--card-title); 
+            color: var(--card-title);
+        }
+
+        /* Focus 無障礙設計（鍵盤 Tab 鍵切換時） */
+        .menu-card:focus-visible {
+            outline: 3px solid var(--card-title);
+            outline-offset: 3px;
+        }
+
+        /* 點擊瞬間按壓回饋 */
+        .menu-card:active {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0,0,0,0.1);
+        }
+
+        .card-title
+        {
+            font-family: inherit;
+            font-size: 1.05rem; 
+            font-weight: 600;
+            color: #2d3748;
+            line-height: 1.4;
+            transition: color 0.2s ease;
+        }
+
+        .menu-card:hover .card-title {
+            color: var(--card-title);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="fimawork_logo" onclick="parent.open('https://fimawork.tw/')"></div>
+    <h1>Code Examples</h1>
+    <p class="info ">Welcome! Please select a configurator below to get started:</p>
+
+    <div class="menu-container">
+        <a href="Outline.html" class="menu-card">
+            <div class="card-title">Outline</div>
+        </a>
+
+        <a href="SceneFocusIn.html" class="menu-card">
+            <div class="card-title">Scene Focus In</div>
+        </a>
+
+        <a href="SceneTransitionEffect.html" class="menu-card">
+            <div class="card-title">Scene Transition Effect</div>
+        </a>
+
+        <a href="Shadow.html" class="menu-card">
+            <div class="card-title">Scene Transition Effect</div>
+        </a>
+
+         <a href="ClearcoatEffect.html" class="menu-card">
+            <div class="card-title">Clearcoat Effect</div>
+        </a>
+    </div>
+
+    <footer>
+  		<div class="footer-content">
+    		<p>Design by fimawork</p>
+  		</div>
+	</footer>
+
+</body>
+</html>
