@@ -3,9 +3,9 @@
 	<head>
 		<meta charset="utf-8">
 		<title>Clearcoat Effect | fx_materials</title>
+		<link rel="stylesheet" type="text/css" href="fx_ui.css">
 		<style type="text/css">
-			@import url('/fx_ui.css');
-
+	
 			*{ 
 				box-sizing: border-box; 
 				margin: 0; 
@@ -61,8 +61,8 @@
 		<script type="module">
 			import * as THREE from 'three';
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-			import * as FX from '/fx_functions.js';
-			import * as FXM from '/fx_materials.js';
+			import * as FX from './fx_functions.js';
+			import * as FXM from './fx_materials.js';
 			import { Inspector } from 'three/addons/inspector/Inspector.js';
 
 			let scene, camera, renderer, controls;
@@ -144,8 +144,8 @@ const code_content = `
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import * as FX from '/threejs_tools/fx_functions.js';
-import * as FXM from '/threejs_tools/fx_materials.js';
+import * as FX from './threejs_tools/fx_functions.js';
+import * as FXM from './threejs_tools/fx_materials.js';
 import { Inspector } from 'three/addons/inspector/Inspector.js';
 
 let scene, camera, renderer, controls;
