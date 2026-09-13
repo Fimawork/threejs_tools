@@ -3,8 +3,8 @@
 	<head>
 		<meta charset="utf-8">
 		<title>Outline | fx_functions</title>
+		<link rel="stylesheet" type="text/css" href="fx_ui.css">
 		<style type="text/css">
-			@import url('./fx_ui.css');
 
 			*{ 
 				box-sizing: border-box; 
@@ -160,11 +160,11 @@
 				controls.zoomSpeed = 0.5;
 				controls.update();
 
-				FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene);
+				FX.LoadUltraHDRForWebGPU('./textures/hdri/studio_small_09_2k.jpg', scene);
 
 				const loader_logo = new GLTFLoader();
 				loader_logo.setDRACOLoader(FX.dracoLoader);
-				loader_logo.load('/models/logo_fimawork.glb', function ( gltf ) {
+				loader_logo.load('./models/logo_fimawork.glb', function ( gltf ) {
 
 						const model = gltf.scene;
 						model.position.set(0, 0, 0);
@@ -249,7 +249,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import * as FX from '/fx_functions.js';
+import * as FX from './fx_functions.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Inspector } from 'three/addons/inspector/Inspector.js';
 
@@ -306,11 +306,11 @@ async function init() {
 	controls.zoomSpeed = 0.5;
 	controls.update();
 
-	FX.LoadUltraHDRForWebGPU('/textures/hdri/studio_small_09_2k.jpg', scene);
+	FX.LoadUltraHDRForWebGPU('./textures/hdri/studio_small_09_2k.jpg', scene);
 
 	const loader_logo = new GLTFLoader();
 	loader_logo.setDRACOLoader(FX.dracoLoader);
-	loader_logo.load('/models/logo_fimawork.glb', function ( gltf ) {
+	loader_logo.load('./models/logo_fimawork.glb', function ( gltf ) {
 
 		const model = gltf.scene;
 		model.position.set(0, 0, 0);
