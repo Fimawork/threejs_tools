@@ -141,3 +141,26 @@ export function ClearCoatEffect(targetMaterial,clearcoat_value,clearcoatRoughnes
 	targetMaterial.clearcoatRoughness=clearcoatRoughness_value;
 	targetMaterial.needsUpdate = true;
 }
+
+// 天鵝絨 / 沙發布料 -> 高 sheen，搭配與主色接近或偏亮的 sheenColor。
+// 絲綢 / 緞帶 - > 低 sheenRoughness，讓反射光點較為集中。
+// 桃皮絨 / 衣服與水果絨毛 -> 高 sheenRoughness，營造極為柔和的表面散射。
+export function SheenEffect(targetMaterial,sheen_value,sheenColor_value,sheenRoughness_value)
+{
+    targetMaterial.sheen = sheen_value; // Sheen 的強度 (0 ~ 1)
+  
+    // 方式 A：如果傳入的是 0xffffff 或 '#ffffff'，用 set() 來更新 Color 物件
+    if (targetMaterial.sheenColor) {
+      targetMaterial.sheenColor.set(sheenColor_value);
+    } 
+    
+    else 
+    {
+      targetMaterial.sheenColor = new THREE.Color(sheenColor_value);
+    }
+
+    targetMaterial.sheenRoughness = sheenRoughness_value;// 光澤層的粗糙度 (0 ~ 1)
+  
+    // 提醒：修改材質動態屬性後，建議標記需要更新 Shader（部分舊版本 Three.js 必備）
+    targetMaterial.needsUpdate = true;
+}
