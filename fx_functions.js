@@ -21,6 +21,9 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { pass, time, oscSine, vec4 } from 'three/tsl';
 import { outline } from 'three/addons/tsl/display/OutlineNode.js';
 
+//Bloom工具
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+
 //提供UI元件應用
 import * as FXUI from 'https://cdn.jsdelivr.net/gh/Fimawork/threejs_tools@2.43/fx_hud.js';
 
@@ -3030,4 +3033,18 @@ export function  SceneFocusInEffect(thisScene,thisCamera,thisRenderer,thisDurati
             }
         });
     });
+}
+
+///Bloom效果工具
+export function SetupBloomPass(thisScene,thisCamera,thisRenderer,thisThreshold=1,thisStrength=1,thisRadius=1)
+{
+    renderPipeline = new THREE.RenderPipeline( thisRenderer );
+	const scenePass = pass( thisScene, thisCamera );
+	const scenePassColor = scenePass.getTextureNode( 'output' ).toInspector( 'Color' );
+	const bloomPass = bloom( scenePassColor ).toInspector( 'Bloom' );
+	renderPipeline.outputNode = scenePassColor.add( bloomPass );
+
+    bloomPass.threshold.value = thisThreshold;//輝光門檻值，0.6代表亮度超過 60% 的像素才會被濾出來進行光暈處理
+	bloomPass.strength.value = thisStrength;//輝光強度
+	bloomPass.radius.value = thisRadius;//輝光擴散半徑 (Radius)
 }

@@ -164,3 +164,25 @@ export function SheenEffect(targetMaterial,sheen_value,sheenColor_value,sheenRou
     // 提醒：修改材質動態屬性後，建議標記需要更新 Shader（部分舊版本 Three.js 必備）
     targetMaterial.needsUpdate = true;
 }
+
+//不受光材質（Unlit）。不會計算陰影與燈光，常用於 UI、純色貼圖、自發光看板、 Skybox
+export function InstEmissiveBasicMaterial(thisColor,intensity=1)
+{
+    return new THREE.MeshBasicMaterial({
+        color: new THREE.Color(thisColor).multiplyScalar(intensity)
+    });
+}
+
+//受光/物理材質（Lit / PBR）。會反應燈光、金屬感與粗糙度，用於一般 3D 物件。
+export function InstEmissivePhysicalMaterial(thisColor,emissiveColor,intensity=1,thisRoughness=1,thisMetalness=1,isTransparent=false,thisOpacity=1)
+{
+    return new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(thisColor),
+        emissive: new THREE.Color(emissiveColor),
+        emissiveIntensity: intensity,
+        roughness: thisRoughness, 
+        metalness: thisMetalness,  
+        transparent: isTransparent,
+		opacity:thisOpacity
+    });
+}

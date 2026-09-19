@@ -1,0 +1,250 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Emissive Effect | fx_materials</title>
+		<link rel="stylesheet" type="text/css" href="fx_ui.css">
+		<style type="text/css">
+
+			*{ 
+				box-sizing: border-box; 
+				margin: 0; 
+				padding: 0; 
+			}
+
+    		body { 
+				display: flex; 
+				width: 100vw; 
+				height: 100vh; 
+				overflow: hidden; 
+			}
+    
+    		/* 左側程式碼編輯區 */
+    		#editor-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  background: #1e1e1e;
+    		}
+
+    		/* 右側 Three.js 渲染區 */
+    		#render-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  position: relative;
+    		}
+    
+    		canvas { 
+				width: 100%; 
+				height: 100%; 
+				display: block; 
+			}
+
+		</style>
+
+		<script type="importmap">
+			{
+			  "imports": {
+			    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js",
+			    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+			  }
+			}
+		</script>
+	</head>
+
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+		<div id="editor-container"></div>
+  		<div id="render-container"></div>
+		
+		<script type="module">
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import * as FX from './fx_functions.js';
+			import * as FXM from './fx_materials.js';
+			import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+			let scene, camera, renderer, controls;
+			let threeContainer = document.getElementById("render-container");
+
+			const CameraDefaultPos = new THREE.Vector3(0, 0, 9);
+			const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+			let BasicEffect = new THREE.Object3D();
+			let PhysicalEffect = new THREE.Object3D();
+
+			init();
+
+			async function init() {
+				FX.SetupEnvironment("cloud");
+
+				scene = new THREE.Scene();
+				camera = new THREE.PerspectiveCamera(45, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+				renderer = new THREE.WebGPURenderer({ antialias: true });
+				renderer.inspector = new Inspector();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+				threeContainer.appendChild(renderer.domElement);
+
+				scene.background = new THREE.Color(0x999999); 
+
+				await renderer.init();
+
+				camera.position.copy(CameraDefaultPos);
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enablePan = true;
+				controls.panSpeed = 0.4;
+				controls.enableDamping = true;
+				controls.target.copy(ControlsTargetDefaultPos);
+				controls.zoomSpeed = 0.5;
+				controls.update();
+
+				FX.LoadUltraHDRForWebGPU('./textures/hdri/studio_small_09_2k.jpg', scene);
+				scene.environmentRotation.y  = FX.ToThreeEulerAngle(-60);
+
+				///1.導入Bloom工具
+				FX.SetupBloomPass(scene,camera,renderer,0.6,1,1);//設定輝光/光暈參數
+
+				const geometry = new THREE.SphereGeometry( 0.6 , 30, 30 );
+
+				///2a.不受光照影響(Unlit)
+				const EmissiveBasicMaterail=FXM.InstEmissiveBasicMaterial(0xdbf7ff,0.8);//發光色，強度
+				BasicEffect = new THREE.Mesh( geometry, EmissiveBasicMaterail );
+				scene.add( BasicEffect );
+				BasicEffect.position.x=-1.5;
+
+				///2b.受光照影響(PBR)
+				const EmissivePhysicalMaterail=FXM.InstEmissivePhysicalMaterial(0xb45f06,0xdbf7ff,0.9,0.1,0.9,true,0.5);//可進一步設定底色、粗糙度、金屬度、透明度
+				PhysicalEffect = new THREE.Mesh( geometry, EmissivePhysicalMaterail );
+				scene.add( PhysicalEffect );
+				PhysicalEffect.position.x=1.5;
+
+				///3.可進一步設定曝光度
+				renderer.toneMappingExposure=0.3;
+
+				renderer.setAnimationLoop(animate);
+				window.addEventListener('resize', onWindowResize);
+			}
+
+			function onWindowResize() 
+			{
+				camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+			}
+
+			function animate(timestamp) 
+			{
+				controls.update();
+
+				///4.載入renderPipeline
+				FX.renderPipeline.render();
+			}
+
+			
+			const code_content = `
+		
+// EmissiveEffect材質球使用範例
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as FX from './fx_functions.js';
+import * as FXM from './fx_materials.js';
+import { Inspector } from 'three/addons/inspector/Inspector.js';
+
+let scene, camera, renderer, controls;
+let threeContainer = document.getElementById("render-container");
+
+const CameraDefaultPos = new THREE.Vector3(0, 0, 9);
+const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+let BasicEffect = new THREE.Object3D();
+let PhysicalEffect = new THREE.Object3D();
+
+init();
+
+async function init() {
+	FX.SetupEnvironment("cloud");
+
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera(45, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 100);
+	renderer = new THREE.WebGPURenderer({ antialias: true });
+	renderer.inspector = new Inspector();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+	threeContainer.appendChild(renderer.domElement);
+
+	scene.background = new THREE.Color(0x999999); 
+
+	await renderer.init();
+
+	camera.position.copy(CameraDefaultPos);
+
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.enablePan = true;
+	controls.panSpeed = 0.4;
+	controls.enableDamping = true;
+	controls.target.copy(ControlsTargetDefaultPos);
+	controls.zoomSpeed = 0.5;
+	controls.update();
+
+	FX.LoadUltraHDRForWebGPU('./textures/hdri/studio_small_09_2k.jpg', scene);
+	scene.environmentRotation.y  = FX.ToThreeEulerAngle(-60);
+
+	///1.導入Bloom工具
+	FX.SetupBloomPass(scene,camera,renderer,0.6,1,1);//設定輝光/光暈參數
+
+	const geometry = new THREE.SphereGeometry( 0.6 , 30, 30 );
+
+	///2a.不受光照影響(Unlit)
+	const EmissiveBasicMaterail=FXM.InstEmissiveBasicMaterial(0xdbf7ff,0.8);//發光色，強度
+	BasicEffect = new THREE.Mesh( geometry, EmissiveBasicMaterail );
+	scene.add( BasicEffect );
+	BasicEffect.position.x=-1.5;
+
+	///2b.受光照影響(PBR)
+	const EmissivePhysicalMaterail=FXM.InstEmissivePhysicalMaterial(0xb45f06,0xdbf7ff,0.9,0.1,0.9,true,0.5);//可進一步設定底色、粗糙度、金屬度、透明度
+	PhysicalEffect = new THREE.Mesh( geometry, EmissivePhysicalMaterail );
+	scene.add( PhysicalEffect );
+	PhysicalEffect.position.x=1.5;
+
+	///3.可進一步設定曝光度
+	renderer.toneMappingExposure=0.3;
+
+	renderer.setAnimationLoop(animate);
+	window.addEventListener('resize', onWindowResize);
+}
+
+function onWindowResize() 
+{
+	camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+}
+
+function animate(timestamp) 
+{
+	controls.update();
+
+	///4.載入renderPipeline
+	FX.renderPipeline.render();
+}
+
+`;
+
+			// 3. 載入 Monaco Editor 顯示左側程式碼
+require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+require(['vs/editor/editor.main'], function() {
+  monaco.editor.create(document.getElementById('editor-container'), {
+    value: code_content,
+    language: 'javascript',
+    theme: 'vs-dark',
+    automaticLayout: true
+  });
+});
+
+
+
+		</script>
+	</body>
+</html>
