@@ -186,3 +186,36 @@ export function InstEmissivePhysicalMaterial(thisColor,emissiveColor,intensity=1
 		opacity:thisOpacity
     });
 }
+
+export function InstVideoMaterial(videoURL='./videos/ending_20260422_720p_5Mb.mp4',emissiveColor = 0xffffff,intensity=1,isTransparent=false,thisOpacity=1)
+{
+    const videoClip = document.createElement( 'video' );
+	videoClip.src = videoURL;	
+    videoClip.crossOrigin = 'anonymous'; // 避免跨域貼圖問題		
+	videoClip.setAttribute('playsinline', '');// 讓影片在手機網頁內播放，不彈出全螢幕播放器
+	videoClip.autoplay=true;
+	videoClip.loop=true;
+	videoClip.muted=true;// 靜音以符合瀏覽器自動播放政策
+	videoClip.style.opacity=1;
+	
+    // 安全播放機制，避免瀏覽器策略引發錯誤
+    videoClip.play().catch((err) => {
+      console.warn('Video autoplay warning:', err);
+    });
+					
+	const texture = new THREE.VideoTexture( videoClip );
+	texture.colorSpace = THREE.SRGBColorSpace;
+	texture.wrapS = THREE.RepeatWrapping; // 允許水平方向重複/翻轉
+	texture.wrapT = THREE.RepeatWrapping; // 允許垂直方向重複/翻轉
+
+	//將影片紋理帶入 map 屬性
+	const material = new THREE.MeshBasicMaterial( { 
+	    map: texture,
+	    side: THREE.DoubleSide, // 讓正面跟反面都能看到影片（選填）
+    	color: new THREE.Color(emissiveColor).multiplyScalar(intensity), /// 將顏色乘以強度，強度 > 1 時可輕鬆觸發 Bloom 輝光
+		transparent:isTransparent,
+		opacity:thisOpacity
+	} );
+
+	return  material;
+}
