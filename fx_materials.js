@@ -211,7 +211,25 @@ export function InstVideoMaterial(videoURL='./videos/ending_20260422_720p_5Mb.mp
 	//將影片紋理帶入 map 屬性
 	const material = new THREE.MeshBasicMaterial( { 
 	    map: texture,
-	    side: THREE.DoubleSide, // 讓正面跟反面都能看到影片（選填）
+	    side: THREE.DoubleSide, // 讓正面跟反面都能看到影片
+    	color: new THREE.Color(emissiveColor).multiplyScalar(intensity), /// 將顏色乘以強度，強度 > 1 時可輕鬆觸發 Bloom 輝光
+		transparent:isTransparent,
+		opacity:thisOpacity
+	} );
+
+	return  material;
+}
+
+export function InstHUDMaterial(imgURL='./textures/Windows_UI.png',emissiveColor = 0xffffff,intensity=1,isTransparent=false,thisOpacity=1)
+{
+    const loader = new THREE.TextureLoader();	
+	const texture = loader.load(imgURL);
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    //將影片紋理帶入 map 屬性
+	const material = new THREE.MeshBasicMaterial( { 
+	    map: texture,
+	    side: THREE.DoubleSide, // 讓正面跟反面都能看到圖片
     	color: new THREE.Color(emissiveColor).multiplyScalar(intensity), /// 將顏色乘以強度，強度 > 1 時可輕鬆觸發 Bloom 輝光
 		transparent:isTransparent,
 		opacity:thisOpacity
