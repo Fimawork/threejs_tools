@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bottom Navigation | fx_hud</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style type="text/css">
+        @import url('/fx_ui.css');
+    </style>
+</head>
+<body>
+    <div class="mobile-panel" id="target">
+			<div class="m-panel-header">
+				<span class="m-panel-title">Frame Style</span>
+				<button class="m-panel-close">✕</button>
+			</div>
+
+            <div class="m-panel-body">
+				
+			</div>
+	</div>
+    <script type="module">
+        import * as FXUI from '/fx_hud.js';
+
+        // 1. 定義要插入的按鍵，icon請使用Google Fonts icon
+        FXUI.nav_btn_list[0]={ icon_font:"deployed_code", btn_title:"CUBE",btn_id:"btn_01"};
+        FXUI.nav_btn_list[1]={ icon_font:"stacks", btn_title:"STACKS",btn_id:"btn_02"};
+        FXUI.nav_btn_list[2]={ icon_font:"done_outline", btn_title:"DONE",btn_id:"btn_03"};
+        FXUI.nav_btn_list[3]={ icon_font:"mail", btn_title:"MAIL",btn_id:"btn_04"};
+        FXUI.nav_btn_list[4]={ icon_font:"comment", btn_title:"COMMENT",btn_id:"btn_05"};
+        FXUI.InstBottomNavigation_Type_A();
+
+        // 2. 定義要插入的面板(optional)
+        FXUI.InstBottomFadeInPanel_Type_A({thisTitle:"CUBE",thisID:"panel_01"});
+        FXUI.InstBottomFadeInPanel_Type_A({thisTitle:"STACKS",thisID:"panel_02"});
+        FXUI.InstBottomFadeInPanel_Type_A({thisTitle:"DONE",thisID:"panel_03"});
+        FXUI.InstBottomFadeInPanel_Type_A({thisTitle:"MAIL",thisID:"panel_04"});
+        FXUI.InstBottomFadeInPanel_Type_A({thisTitle:"COMMENT",thisID:"panel_05"});
+
+        // 3. 顯示面板的方法
+        document.getElementById("btn_01").addEventListener("click", () => {
+            document.getElementById("panel_01").classList.add("open");
+		});
+
+         document.getElementById("btn_02").addEventListener("click", () => {
+            document.getElementById("panel_02").classList.add("open");
+		});
+
+         document.getElementById("btn_03").addEventListener("click", () => {
+            document.getElementById("panel_03").classList.add("open");
+		});
+
+         document.getElementById("btn_04").addEventListener("click", () => {
+            document.getElementById("panel_04").classList.add("open");
+		});
+
+         document.getElementById("btn_05").addEventListener("click", () => {
+            document.getElementById("panel_05").classList.add("open");
+		});
+
+        // 4. 定義要匯入面板的HTML字串
+        const htmlContent_01 = `
+            <div style="text-align:center;">
+                <input id="fabric_color_mobile" type="color" value="#0d0d0f" style="width:60px; height:60px;        border:none; border-radius:8px; cursor:pointer; background:none;">
+                <div style="font-size:0.65rem; color:rgba(240,236,228,0.4); letter-spacing:0.1em;       margin-top:10px;">Select fabric color</div>
+            </div>
+        `;
+        
+        // 5. 匯入面板
+        FXUI.SetupBottomFadeInPanelContent_Type_A("#panel_01",htmlContent_01);
+        
+        // 6.取得輸入的資料的方法(optional)
+        const colorInput = document.getElementById('fabric_color_mobile');
+
+        colorInput.addEventListener('input', (e) => {
+            console.log('選取的顏色：', e.target.value);
+        });
+
+
+        //其他面板
+        const htmlContent_02 = `
+            <button class="buy-button" style="width:100%; text-align:center;">STACKS TEST</button>
+        `;
+       
+        const htmlContent_03 = `
+            <button class="buy-button" style="width:100%; text-align:center;">DONE TEST</button>
+        `;
+
+        const htmlContent_04 = `
+            <button class="buy-button" style="width:100%; text-align:center;">MAIL TEST</button>
+        `;
+
+        const htmlContent_05 = `
+            <button class="buy-button" style="width:100%; text-align:center;">COMMENT TEST</button>
+        `;
+
+        FXUI.SetupBottomFadeInPanelContent_Type_A("#panel_02",htmlContent_02);
+        FXUI.SetupBottomFadeInPanelContent_Type_A("#panel_03",htmlContent_03);
+        FXUI.SetupBottomFadeInPanelContent_Type_A("#panel_04",htmlContent_04);
+        FXUI.SetupBottomFadeInPanelContent_Type_A("#panel_05",htmlContent_05);
+    
+        
+    </script>
+    
+</body>
+</html>

@@ -231,3 +231,81 @@ export function InstLoadingEffect_Type_C(show)
         setTimeout(onEnd, 350);
     }
 }
+
+///搭配 Google Fonts icon ，<span class="material-symbols-outlined">deployed_code</span>
+export let nav_btn_list=[]=[{ icon_font:"deployed_code", btn_title:"CUBE",btn_id:"this_id"}];
+
+export function InstBottomNavigation_Type_A({backgroundColor="rgba(13,13,15,0.85)",textColor="rgba(240,236,228,0.55)"}={})
+{
+    let bottom_nav = document.createElement("div");
+    bottom_nav.setAttribute("class","mobile-bottom-nav");
+    bottom_nav.style.background=backgroundColor;
+    document.body.append(bottom_nav);
+
+    for(let i=0;i<nav_btn_list.length;i++)
+    {
+        let btn = document.createElement("button");
+        btn.setAttribute("class","m-nav-btn");
+        btn.setAttribute("id", nav_btn_list[i].btn_id);
+        btn.style.color=textColor;
+        bottom_nav.append(btn);
+
+        let icon = document.createElement("span"); 
+        icon.setAttribute("class","material-symbols-outlined");
+        icon.textContent=nav_btn_list[i].icon_font;
+        btn.append(icon);
+
+        let title = document.createElement("span");
+        title.textContent=nav_btn_list[i].btn_title;
+        btn.append(title);
+    }
+}
+
+export function InstBottomFadeInPanel_Type_A({backgroundColor="rgba(13,13,15,0.85)",textColor="rgba(240,236,228,0.55)",thisTitle="Title",thisID="this_id"}={})
+{
+    let panel = document.createElement("div");
+    panel.setAttribute("class","mobile-panel");
+    panel.setAttribute("id", thisID);
+    panel.style.background=backgroundColor;
+    document.body.append(panel);
+
+    let header = document.createElement("div");
+    header.setAttribute("class","m-panel-header");
+    header.style.borderColor=textColor;
+    panel.append(header);
+
+    let title = document.createElement("span");
+    title.setAttribute("class","m-panel-title");
+    title.textContent=thisTitle;
+    title.style.color=textColor;
+    header.append(title);
+
+    let closeBtn = document.createElement("button");
+    closeBtn.setAttribute("class","m-panel-close");
+    closeBtn.textContent="✕";
+    closeBtn.style.color=textColor;
+    header.append(closeBtn);
+
+    let panel_body = document.createElement("div");
+    panel_body.setAttribute("class","m-panel-body");
+    panel.append(panel_body);
+
+    closeBtn.addEventListener("pointerdown", () => {
+					
+		panel.classList.remove("open");
+
+	});
+}
+
+//輸入目標id
+export function SetupBottomFadeInPanelContent_Type_A(targetPanelID,thisContent)
+{
+    // 1. 取得 id="target" 底下的 .m-panel-body
+    const panelBody = document.querySelector(`${targetPanelID} .m-panel-body`);
+
+    // 2. 定義要插入的 HTML 字串
+    const htmlContent =thisContent;
+        
+    // 3. 填入內容（會覆蓋原本內部的內容）
+    panelBody.innerHTML = htmlContent;
+}
