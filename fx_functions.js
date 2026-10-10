@@ -45,6 +45,10 @@ export let CameraDefaultPos, ControlsTargetDefaultPos;
 export let renderPipeline, outlinePass;
 export let selectedObjects = [];
 
+// raycaster tools
+export const pointer = new THREE.Vector2();
+export const raycaster = new THREE.Raycaster();
+
 ///建議設置默認位置 posData[0]={ camera_pos:CameraDefaultPos, controlsTarget_pos:ControlsTargetDefaultPos};
 ///可自行擴充點位，EX:posData[1]={ camera_pos:new THREE.Vector3(267.359,339.340,302.847), controlsTarget_pos:new THREE.Vector3(-22.364,-14.285,25.345)};
 export let posData=[]=[{ camera_pos:new THREE.Vector3(0, 5, 5), controlsTarget_pos:new THREE.Vector3(0, 0, 0)}];
@@ -3048,3 +3052,73 @@ export function SetupBloomPass(thisScene,thisCamera,thisRenderer,thisThreshold=1
 	bloomPass.strength.value = thisStrength;//輝光強度
 	bloomPass.radius.value = thisRadius;//輝光擴散半徑 (Radius)
 }
+
+
+///Raycaster事件工具
+export function SetupRaycasterEvent(thisScene,thisCamera,thisRenderer)
+{
+    const domElement = thisRenderer.domElement;
+
+    // 用於紀錄按下的位置，過濾拖曳/旋轉視角的誤觸
+    let startX = 0;
+    let startY = 0;
+
+    // 移動超過 6px 視為拖曳，不執行 Raycast
+    const DRAG_THRESHOLD = 6; 
+
+    function OnPointerDown(event) 
+    {
+        startX = event.clientX;
+        startY = event.clientY;
+    }
+
+    function OnPointerUp(event) 
+    {
+        //判斷是否為拖曳 (例如用戶正在用 OrbitControls 旋轉視角)
+        const deltaX = Math.abs(event.clientX - startX);
+        const deltaY = Math.abs(event.clientY - startY);
+
+        if (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD) {
+          return; // 正在拖曳/旋轉，忽略點擊
+        }
+
+        //正確計算 Normalized Device Coordinates (NDC)
+        const rect = domElement.getBoundingClientRect();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // 更新射線
+        raycaster.setFromCamera(pointer, thisCamera);
+
+        // 5. 修正：傳入陣列 [thisScene] 或 thisScene.children
+        const intersects = raycaster.intersectObjects(thisScene.children, true);
+
+        if (intersects.length > 0) 
+        {
+            const hitObject = intersects[0].object;
+  
+            ///發送事件，用來觸發自定義事件
+            window.dispatchEvent(new CustomEvent('Select', { 
+              detail: { selectedTarget: hitObject } 
+            }));
+        }
+
+        else 
+        {
+			///發送事件，用來取消自定義事件
+            window.dispatchEvent(new CustomEvent('Deselect'));
+		}
+    }
+
+    // 綁定事件
+    domElement.addEventListener('pointerdown', OnPointerDown);
+    domElement.addEventListener('pointerup', OnPointerUp);
+
+    // 6. 回傳 Cleanup 函式，防止記憶體洩漏 (用於元件卸載時)
+    return function cleanup() 
+    {
+        domElement.removeEventListener('pointerdown', OnPointerDown);
+        domElement.removeEventListener('pointerup', OnPointerUp);
+    };
+}
+
