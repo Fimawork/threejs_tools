@@ -3122,3 +3122,64 @@ export function SetupRaycasterEvent(thisScene,thisCamera,thisRenderer)
     };
 }
 
+///Explode Effect事件工具
+let explode_module_parts=[];
+let default_position_list=[];
+let explodeFrameAnim = null;
+let explode_distance=0;
+let explode_center=new THREE.Vector3(0,0,0);
+let explode_ratio=1;
+
+export function ExplodeEffect(isExploded)
+{
+    // 關鍵防護：如果上一段動畫還沒跑完，先取消它！避免雙重 Loop 加速發狂
+    if (explodeFrameAnim) 
+    {
+      cancelAnimationFrame(explodeFrameAnim);
+      explodeFrameAnim = null;
+    }
+    
+    const renderLoop= () =>
+    {
+        // 檢查是否動畫已達終點，若是則直接結束，不註冊下一幀
+        if ((isExploded && explode_distance >= 100) || (!isExploded && explode_distance <= 0)) 
+        {
+            explodeFrameAnim = null;
+            return; 
+        }
+
+        // 更新距離
+        if (isExploded && explode_distance < 100) explode_distance++;
+        if (!isExploded && explode_distance > 0) explode_distance--;
+
+        for(let i=0;i<explode_module_parts.length;i++)
+        {
+            explode_module_parts[i].position.set(
+                explode_center.x+(default_position_list[i].x-explode_center.x)*explode_ratio*explode_distance,
+                explode_center.y+(default_position_list[i].y-explode_center.y)*explode_ratio*explode_distance,
+                explode_center.z+(default_position_list[i].z-explode_center.z)*explode_ratio*explode_distance
+            );
+        }
+
+        explodeFrameAnim = requestAnimationFrame(renderLoop);
+    };
+
+    renderLoop();
+}
+
+export function SetupExplodeEffectModule(target,center=new THREE.Vector3(0,0,0),ratio=1)
+{
+    explode_center=center;
+    explode_ratio=ratio;
+
+    //每次初始化前強制清空陣列，避免舊模型殘留
+    explode_module_parts = [];
+    default_position_list = [];
+
+    for(let i=0;i<target.children.length;i++)
+    {
+        explode_module_parts.push(target.children[i]);
+        default_position_list.push(ReturnModelCenter(target.children[i]).clone());
+    }
+}
+
