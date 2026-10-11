@@ -113,7 +113,7 @@
     100% { width: 100%; left: 100%; } /* Slide out to the right */
 }
 
-
+/*bottom navigation*/
 .mobile-bottom-nav { display: none; }
 .mobile-panel      { display: none; }
 
@@ -214,6 +214,35 @@
 @keyframes fadeInUp {
     from { opacity: 0; transform: translate(-50%, 20px); }
     to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/*watermark*/
+.fimawork_watermark
+{
+	position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center; /* 確保居中 */
+    opacity: 0.15;
+    z-index: 10; /* 放在 Canvas 上層 */
+    pointer-events: none; /* 關鍵！讓滑鼠穿透，完全不破壞 3D 拖拽互動 */
+    user-select: none;
+}
+
+.watermark_logo
+{
+    width: 70%; /* 改用寬度控制大小，比 margin 15% 更穩定 */
+    max-width: 400px;
+    aspect-ratio: 192 / 33;
+    background-image: url('./images/fimawork_logo_C_gray.png');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 

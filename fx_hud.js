@@ -309,3 +309,14 @@ export function SetupBottomFadeInPanelContent_Type_A(targetPanelID,thisContent)
     // 3. 填入內容（會覆蓋原本內部的內容）
     panelBody.innerHTML = htmlContent;
 }
+
+export function InstWatermark()
+{
+    let watermark_div = document.createElement("div");
+    watermark_div.setAttribute("class","fimawork_watermark");
+    document.body.append(watermark_div);
+
+    let logo_div = document.createElement("div");
+    logo_div.setAttribute("class","watermark_logo");
+    watermark_div.append(logo_div);
+}
