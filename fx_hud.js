@@ -320,3 +320,45 @@ export function InstWatermark()
     logo_div.setAttribute("class","watermark_logo");
     watermark_div.append(logo_div);
 }
+
+///Bottom Color Selector腳本
+export let bottom_color_btn_list=[]=[{data_label:"Sky Blue",btn_id:"this_id",btn_color:"linear-gradient(135deg, #FF8566, #e05c3a)"}];
+
+export function InstBottomColorSelector()
+{
+    let selector_panel = document.createElement("div");
+    selector_panel.setAttribute("id", "bottom-color-selector");
+    document.body.append(selector_panel);
+
+    let main_title = document.createElement("div");
+    main_title.setAttribute("class", "color-name-display");
+    main_title.setAttribute("id", "colorNameDisplay");
+    main_title.textContent = bottom_color_btn_list[0].data_label;
+    selector_panel.append(main_title);
+
+    let sub_title = document.createElement("div");
+    sub_title.setAttribute("class", "color-selector-label");
+    sub_title.textContent="Choose Color";
+    selector_panel.append(sub_title);
+
+    let btn_container = document.createElement("div");
+    btn_container.setAttribute("class", "color-selector-row");
+    selector_panel.append(btn_container);
+
+    for(let i=0;i<bottom_color_btn_list.length;i++)
+    {
+        let btn = document.createElement("button");
+        btn.setAttribute("class","bottom-color-btn");
+        if(i===0)btn.classList.add("active")
+        btn.setAttribute("data-label",bottom_color_btn_list[i].data_label);
+        btn.setAttribute("id", bottom_color_btn_list[i].btn_id);
+        btn.style.background=bottom_color_btn_list[i].btn_color;
+        btn_container.append(btn);
+
+        btn.addEventListener("click", () => {
+            btn_container.querySelectorAll(".bottom-color-btn").forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            main_title.textContent = bottom_color_btn_list[i].data_label;
+        })
+    }
+}

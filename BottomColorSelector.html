@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bottom Color Selector | fx_hud</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style type="text/css">
+        @import url('/fx_ui.css');
+
+        body
+		{
+			margin: 0;
+			padding:0; 
+			overflow: hidden;
+		}
+			
+		canvas
+		{
+			width: 100%;
+   			height: 100%;
+		}
+
+    	#threeContainer {
+			position: absolute;
+			top: 0; 
+            left: 0;
+			width: 100%; 
+            height: 100%;
+			z-index: 6;
+		}
+    </style>
+
+    <script type="importmap">
+		{
+		  "imports": {
+		    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+		    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+		    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js",
+		    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+		  }
+		}
+	</script>
+
+</head>
+<body>
+    <div id="threeContainer"></div>
+    <script type="module">
+       
+        import * as THREE from 'three';
+		import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+		import * as FX from './fx_functions.js';
+		import * as FXM from './fx_materials.js';
+        import * as FXUI from '/fx_hud.js';
+		import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+		let scene, camera, renderer, controls;
+		let threeContainer = document.getElementById("threeContainer");
+
+		const CameraDefaultPos = new THREE.Vector3(150.563,124.197,281.439);
+		const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+		const main_material=FXM.InstMaterial("#EEEBD3",1,1,0,1.5,1,false,1,true);
+
+		init();
+
+		async function init() 
+		{
+			FX.SetupEnvironment("cloud");
+
+			scene = new THREE.Scene();
+			camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 1000);
+			renderer = new THREE.WebGPURenderer({ antialias: true });
+			renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+			threeContainer.appendChild(renderer.domElement);
+
+			await renderer.init();
+
+			camera.position.copy(CameraDefaultPos);
+
+			controls = new OrbitControls(camera, renderer.domElement);
+			controls.enablePan = false;
+			controls.panSpeed = 0.4;
+			controls.enableDamping = true;
+			controls.target.copy(ControlsTargetDefaultPos);
+			controls.zoomSpeed = 0.5;
+			controls.autoRotate = false;
+			controls.update();
+
+			FX.LoadUltraHDRForWebGPU('./textures/hdri/kloofendal_48d_partly_cloudy_puresky_1k.jpg',scene);
+		
+			const loader_cushion = new GLTFLoader();
+			loader_cushion.setDRACOLoader(FX.dracoLoader);
+			loader_cushion.load('./models/RubiksCube.glb', function ( gltf ) {
+
+				const model = gltf.scene;
+				model.position.set(0, 0, 0);
+				model.scale.set(1, 1, 1);
+
+				model.traverse(function (object) {
+					if (object.name.includes("part_"))FX.ReturnBufferGeometry(object, main_material, null, scene);
+				});
+			});
+
+			// 1. 定義要插入的按鍵，hover與active，面板標題呈現data_label內容，btn_color為按鍵的顏色
+        	FXUI.bottom_color_btn_list[0]={ data_label:"Champagne Gold",btn_id:"btn_01",btn_color:"linear-gradient(135deg, #EEEBD3, #d4c98a)"};
+        	FXUI.bottom_color_btn_list[1]={ data_label:"Sakura Pink",btn_id:"btn_02",btn_color:"linear-gradient(135deg, #FE90BC, #f06fa0)"};
+        	FXUI.bottom_color_btn_list[2]={ data_label:"Sky Blue",btn_id:"btn_03",btn_color:"linear-gradient(135deg, #dbf7ff, #a8e8f8)"};
+        	FXUI.bottom_color_btn_list[3]={ data_label:"Midnight Black",btn_id:"btn_04",btn_color:"linear-gradient(135deg, #484747, #2a2a2a)"};
+        	FXUI.bottom_color_btn_list[4]={ data_label:"Lavender Purple",btn_id:"btn_05",btn_color:"linear-gradient(135deg, #F3B4F1, #d88cd5)"};
+			FXUI.bottom_color_btn_list[5]={ data_label:"Sunset Orange",btn_id:"btn_06",btn_color:"background: linear-gradient(135deg, #FF8566, #e05c3a)"};
+
+			// 2. 匯入面板
+			FXUI.InstBottomColorSelector();
+
+			// 3. 功能觸發的方法，僅須設定3D部分的效果，按鍵狀態可自動更新。
+			// 範例為直接更換材質球顏色
+        	document.getElementById("btn_01").addEventListener("click", () => {main_material.color.set("#EEEBD3");});
+			document.getElementById("btn_02").addEventListener("click", () => {main_material.color.set("#FE90BC");});
+			document.getElementById("btn_03").addEventListener("click", () => {main_material.color.set("#dbf7ff");});
+			document.getElementById("btn_04").addEventListener("click", () => {main_material.color.set("#484747");});
+			document.getElementById("btn_05").addEventListener("click", () => {main_material.color.set("#F3B4F1");});
+			document.getElementById("btn_06").addEventListener("click", () => {main_material.color.set("#FF8566");});
+
+			renderer.setAnimationLoop(animate);
+			window.addEventListener('resize', onWindowResize);
+		}
+
+		function onWindowResize() 
+		{
+			camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+		}
+
+		function animate(timestamp) 
+		{
+			controls.update();
+			renderer.render(scene, camera);
+		}
+    
+    </script>
+</body>
+</html>
