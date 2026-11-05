@@ -1364,6 +1364,22 @@ export function isMobile()//偵測是否為行動裝置
   return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+export function ReturnWorldPosition(target) 
+{
+  if (!target || typeof target.getWorldPosition !== 'function') {
+    console.warn("[ReturnWorldPosition] 傳入的 target 無效或非 Object3D！", target);
+    return new THREE.Vector3(); // 回傳預設原點 (0,0,0) 或 null，避免主流程崩潰
+  }
+
+  const worldPosition = new THREE.Vector3();
+
+  // 若物體位置剛發生改變，未執行此步驟可能會拿到上一幀的舊座標
+  target.updateWorldMatrix(true, false);
+  target.getWorldPosition(worldPosition);
+
+  return worldPosition;
+}
+
 export function ReturnModelCenter(target)
 {
     let center= new THREE.Vector3();
@@ -3183,3 +3199,25 @@ export function SetupExplodeEffectModule(target,center=new THREE.Vector3(0,0,0),
     }
 }
 
+/**
+ * 檢查指定的物件（或其任何一層父節點）是否包含特定名稱
+ * @param {THREE.Object3D} node - 當前的 Three.js 物件/Mesh
+ * @param {string|Array<string>} targetName - 要忽略的父節點名稱或名稱陣列
+ * @returns {boolean} - 若屬於該父節點層級，回傳 true
+ */
+export function ShouldIgnoreHierarchy(node, targetName) 
+{
+  if (!node) return false;
+
+  const targets = Array.isArray(targetName) ? targetName : [targetName];
+  let parent = node;
+
+  while (parent) {
+    if (parent.name && targets.includes(parent.name)) {
+      return true; // 找到了匹配的父節點，需要忽略
+    }
+    parent = parent.parent; // 向上爬升一層層級
+  }
+
+  return false; // 代表不屬於該層級
+}
