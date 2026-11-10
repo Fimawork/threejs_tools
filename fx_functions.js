@@ -2897,6 +2897,45 @@ export function SetOutlineEffect( target )
     }
 }
 
+///X-Ray效果工具
+let xrayModule;
+let xrayOpacity=0.3;   
+let xrayMeshes = [];   
+
+export function SetupXRayEffectModule(target,newOpacity)
+{
+    xrayModule= target ;
+    xrayOpacity=newOpacity;
+    xrayMeshes = [];   // 換模型時重新收集
+}
+
+export function SetXRayMode(target)
+{
+    if (!xrayModule) return;
+    
+    if (xrayMeshes.length === 0)
+    {
+        SafeTraverse(xrayModule, (o) => {
+            if (!o.isMesh) return;
+            o.material = o.material.clone();
+            o.material.userData.orig = {
+                opacity: o.material.opacity,
+                transparent: o.material.transparent,
+            };
+            xrayMeshes.push(o);
+        });
+    }
+
+    for (const mesh of xrayMeshes) {
+        const m = mesh.material;
+        const on = target && mesh !== target;
+        m.opacity = on ? xrayOpacity : m.userData.orig.opacity;
+        m.transparent = on ? true : m.userData.orig.transparent;
+        m.depthWrite = !on;
+        m.needsUpdate = true;
+    }
+}
+
 ///轉場效果工具
 let transitionPass;
 let isSceneTransitioning = false;
