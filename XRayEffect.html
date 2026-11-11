@@ -84,9 +84,12 @@
 				scene = new THREE.Scene();
 				camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 1000);
 				renderer = new THREE.WebGPURenderer({ antialias: true });
+				renderer.setClearColor( 0x263238 );
 				renderer.inspector = new Inspector();
 				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
 				threeContainer.appendChild(renderer.domElement);
+
+				
 
 				await renderer.init();
 
@@ -176,7 +179,7 @@
 		
 const code_content = `
 		
-// XRay Effect工具使用範例 
+// X-Ray Effect工具使用範例 
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
