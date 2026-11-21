@@ -28,7 +28,7 @@ echo 📦 偵測到原始檔案：%~nx1
 echo ⚙️  正在啟動工業級幾何優化（目標體積：~25%%）...
 
 :: 🚀 執行您的黃金壓縮指令 (-si 0.25 保留25%面數, -vp 14 提高圓弧精準度, -noq 關閉法線量化確保烤漆反光完美)
-gltfpack -i "%INPUT_FILE%" -o "%OUTPUT_FILE%" -si 0.25 -vp 14 
+gltfpack -i "%INPUT_FILE%" -o "%OUTPUT_FILE%" -si 0.25 -vp 14
 
 if %errorlevel% equ 0 (
     echo.
@@ -39,7 +39,7 @@ if %errorlevel% equ 0 (
     echo ===================================================
 ) else (
     echo.
-    echo ❌ 壓縮失敗！請檢查電腦是否已正確安裝 gltfpack。
+    echo ❌ 壓縮失敗！請檢查電腦是否已正確安裝 gltfpack。  1.安裝 Node.js 2.執行 npm install -g gltfpack
 )
 
 echo.
