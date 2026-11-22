@@ -36,6 +36,9 @@ import { mix, renderOutput, smoothstep } from 'three/tsl';
 import { boxBlur } from 'three/addons/tsl/display/boxBlur.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 
+//CSS2DRenderer工具
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
 import Stats from 'three/addons/libs/stats.module.js';
 
 export let targetPosition=null;
@@ -3260,3 +3263,116 @@ export function ShouldIgnoreHierarchy(node, targetName)
 
   return false; // 代表不屬於該層級
 }
+
+///尺寸標註工具
+// target：量測目標；offset：標註線離物件邊緣的距離；scale：比例尺；unit：單位
+// 回傳標註用的 Group，要移除時呼叫 RemoveDimensionLabels(回傳值)
+export const dimLineMaterial = new THREE.LineBasicMaterial({ color: 0x000000 });
+
+export function InstDimensionLabels(target, offset = 1, scale = 1, unit = "mm")
+{
+    RecomputeBounds(target);   // 以實際頂點計算外框，不採用模型檔內的數值
+    target.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(target);
+    if (box.isEmpty()) return null;
+
+    const { min, max } = box;
+    const size = box.getSize(new THREE.Vector3());
+    const arrow = Math.max(size.x, size.y, size.z) * 0.03;   // 箭頭大小：物件最大邊的 3%
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+    const group = new THREE.Group();
+    group.name = "DimensionEffect";
+
+    // 長（X）：前方下緣，往前（+Z）偏移
+    AddDimension(group, V(min.x, min.y, max.z), V(max.x, min.y, max.z), V(0, 0, 1),
+                 offset, arrow, FormatDimension(size.x, scale, unit));
+
+    // 寬（Z）：右側下緣，往右（+X）偏移
+    AddDimension(group, V(max.x, min.y, min.z), V(max.x, min.y, max.z), V(1, 0, 0),
+                 offset, arrow, FormatDimension(size.z, scale, unit));
+
+    // 高（Y）：左前方垂直邊，往左（-X）偏移
+    AddDimension(group, V(min.x, min.y, max.z), V(min.x, max.y, max.z), V(-1, 0, 0),
+                 offset, arrow, FormatDimension(size.y, scale, unit));
+
+    // 加到場景最上層（標註用世界座標計算）
+    let root = target;
+    while (root.parent) root = root.parent;
+    root.add(group);
+
+    return group;
+}
+
+// 依實際頂點重新計算每個 mesh 的 boundingBox 與 boundingSphere
+function RecomputeBounds(target)
+{
+    target.traverse((o) => {
+        if (!o.isMesh || !o.geometry) return;
+        o.geometry.computeBoundingBox();
+        o.geometry.computeBoundingSphere();
+    });
+}
+
+// a、b：被量測邊的兩端；normal：偏移方向（單位向量）
+function AddDimension(group, a, b, normal, offset, arrow, text)
+{
+    const p1 = a.clone().addScaledVector(normal, offset);
+    const p2 = b.clone().addScaledVector(normal, offset);
+    const axis = p2.clone().sub(p1).normalize();
+    const over = normal.clone().multiplyScalar(arrow * 0.5);   // 延伸線稍微超出標註線
+
+    const points = [
+        // 延伸線
+        a, p1.clone().add(over),
+        b, p2.clone().add(over),
+        // 標註線
+        p1, p2,
+        // 兩端箭頭
+        p1, p1.clone().addScaledVector(axis,  arrow).addScaledVector(normal,  arrow * 0.3),
+        p1, p1.clone().addScaledVector(axis,  arrow).addScaledVector(normal, -arrow * 0.3),
+        p2, p2.clone().addScaledVector(axis, -arrow).addScaledVector(normal,  arrow * 0.3),
+        p2, p2.clone().addScaledVector(axis, -arrow).addScaledVector(normal, -arrow * 0.3),
+    ];
+
+    const lines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points), dimLineMaterial);
+    lines.raycast = () => {};   // 不參與點選
+    group.add(lines);
+
+    // 數值標籤，放在標註線中點
+    const div = document.createElement("div");
+    div.className = "dim-label";
+    div.textContent = text;
+    div.style.cssText = `
+        padding: 2px 6px; border-radius: 3px;
+        background: rgba(0, 0, 0, 0.6); color: #fff;
+        font: 13px 'Rajdhani', sans-serif; white-space: nowrap;`;
+
+    const label = new CSS2DObject(div);
+    label.position.copy(p1).add(p2).multiplyScalar(0.5);
+    group.add(label);
+}
+
+// 量測值 × 比例尺，最多保留兩位小數並去掉多餘的 0
+function FormatDimension(value, scale, unit)
+{
+    return `${parseFloat((value * scale).toFixed(2))} ${unit}`;
+}
+
+export function RemoveDimensionLabels(group)
+{
+    if (!group) return;
+    group.traverse((o) => {
+        if (o.isCSS2DObject) o.element.remove();
+        if (o.geometry) o.geometry.dispose();
+    });
+    group.removeFromParent();
+}
+
+/**
+const dim = InstDimensionLabels(main_model, 0.06, 1000, "mm");
+RemoveDimensionLabels(dim);          // ✅ 正確
+RemoveDimensionLabels(main_model);   // ❌ 會把模型的幾何也釋放掉，模型會壞掉
+dim = null;                          //移除後建議把變數設成 null，避免之後誤用到已經移除的 group：
+**/
+
