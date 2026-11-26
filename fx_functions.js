@@ -403,6 +403,9 @@ export function ReturnBufferGeometry(target,thisMaterial,thisParent,thisScene)
     {
         thisScene.add( mergedMesh );
     }
+
+    //呼叫的地方可拿到合併後的 Mesh。沒有用變數接住時，回傳值就直接被丟掉，函式其他的動作照常執行。
+	return mergedMesh;
 }
 
 export function InstTiffLoader(thisObject,filePath,thisPos,thisRot,thisScale,tintColor, opacity, thisParent, thisScene)
@@ -3376,3 +3379,207 @@ RemoveDimensionLabels(main_model);   // ❌ 會把模型的幾何也釋放掉，
 dim = null;                          //移除後建議把變數設成 null，避免之後誤用到已經移除的 group：
 **/
 
+
+///Section View Effect工具
+
+let sectionPlane = null;           // 剖面平面（THREE.Plane），由 SetupSectionPanel 建立
+let sectionCap = null;             // 剖面蓋（只畫在 stencil 標記的位置）
+let sectionHelper = null;          // 剖面平面外框（Show Plane）
+
+const sectionStencils = [];        // 每個模型一組 stencil
+const sectionClipGroups = [];      // 每個模型一組裁切群組
+const sectionBounds = new THREE.Box3();   // 所有剖面模型合起來的範圍（世界座標
+
+///剖面（Section View）只使用一個平面
+///屬性名稱就是面板上顯示的名稱，命名比照 SolidWorks Section View
+const section_params = {
+
+	section: {
+		'Enabled': false,       // 啟用剖視圖
+		'Plane': 'Right',       // 剖面基準面：Front / Top / Right
+		'Offset': 1,            // 剖面偏移距離（沿平面法線）
+		'Flip Side': false,     // 反轉剖面方向（切換保留哪一側）
+		'Show Plane': false     // 顯示剖面平面外框
+
+	}
+
+};
+
+///各基準面的平面法線（Flip Side 前）
+///模型方向依 glTF 慣例：前 +Z、上 +Y、右 +X
+const SECTION_NORMALS = {
+	Right: new THREE.Vector3( - 1, 0, 0 ),  // 右基準面（YZ 平面），沿 X 切
+	Top:   new THREE.Vector3( 0, - 1, 0 ),  // 上基準面（XZ 平面），沿 Y 切
+	Front: new THREE.Vector3( 0, 0, - 1 ),  // 前基準面（XY 平面），沿 Z 切
+};
+
+///切換剖面基準面：法線改成該方向（保留 Flip Side 與目前的 Offset）
+function SetSectionPlane( name )
+{
+	const normal = SECTION_NORMALS[ name ].clone();
+	if ( section_params.section[ 'Flip Side' ] ) normal.negate();
+
+	sectionPlane.normal.copy( normal );
+	sectionPlane.constant = section_params.section[ 'Offset' ];
+}
+
+///stencil：用模型 geometry 標記「切口內部」的像素，剖面蓋只畫在這些位置
+///正反面都畫、只寫 stencil 不寫顏色與深度，每經過一層表面就翻轉一次
+function CreateSectionStencil( geometry )
+{
+	const group = new THREE.ClippingGroup();
+	group.clippingPlanes = [ sectionPlane ];
+
+	const material = new THREE.MeshBasicNodeMaterial();
+	material.side = THREE.DoubleSide;
+	material.depthWrite = false;
+	material.depthTest = false;
+	material.colorWrite = false;
+	material.stencilWrite = true;
+	material.stencilFunc = THREE.AlwaysStencilFunc;
+	material.stencilFail = THREE.InvertStencilOp;
+	material.stencilZFail = THREE.InvertStencilOp;
+	material.stencilZPass = THREE.InvertStencilOp;
+
+	const mesh = new THREE.Mesh( geometry, material );
+	mesh.renderOrder = 1;
+	mesh.raycast = () => {};   // 只用來寫 stencil，不參與點選
+	group.add( mesh );
+
+	return group;
+}
+
+///剖面蓋：只在 stencil 不為 0 的地方繪製，畫完把 stencil 清回 0
+function CreateSectionCap(sectionCapColor= 0xE91E63)
+{
+	const material = new THREE.MeshStandardNodeMaterial( {
+
+		color: sectionCapColor,
+		metalness: 0.1,
+		roughness: 0.75,
+
+		stencilWrite: true,
+		stencilRef: 0,
+		stencilFunc: THREE.NotEqualStencilFunc,
+		stencilFail: THREE.ReplaceStencilOp,
+		stencilZFail: THREE.ReplaceStencilOp,
+		stencilZPass: THREE.ReplaceStencilOp,
+
+	} );
+
+	// 1×1 的平面，實際大小在 SetupClippingModel 依模型尺寸用 scale 調整
+	const cap = new THREE.Mesh( new THREE.PlaneGeometry( 1, 1 ), material );
+	cap.renderOrder = 1.1;   // 在 stencil 之後、模型之前
+	cap.raycast = () => {};
+	return cap;
+}
+
+///建立剖面效果：stencil + 被剖面平面裁切的模型，全部放進 main_model
+///必須在模型載入完成、拿到合併後的 geometry 之後呼叫
+export function SetupClippingModel(geometry, modelMaterial, thisParent)
+{
+	if ( ! sectionPlane )
+	{
+		console.warn( 'SetupClippingModel：請先呼叫 SetupSectionPanel 建立剖面平面' );
+		return null;
+	}
+
+	const stencil = CreateSectionStencil( geometry );
+	thisParent.add( stencil );
+	sectionStencils.push( stencil );
+
+	const clipGroup = new THREE.ClippingGroup();
+	clipGroup.clippingPlanes = [ sectionPlane ];
+	clipGroup.clipShadows = true;
+	thisParent.add( clipGroup );
+	sectionClipGroups.push( clipGroup );
+
+	const clippedModel = new THREE.Mesh( geometry, modelMaterial );
+	clippedModel.castShadow = true;
+	clippedModel.renderOrder = 6;
+	clipGroup.add( clippedModel );
+
+	// 剖面蓋、平面外框依「所有」模型合起來的大小縮放
+	// 只用這次的 geometry 會變成只看最後一個模型，前面的模型切口可能比蓋子大
+	if ( ! geometry.boundingBox ) geometry.computeBoundingBox();
+	thisParent.updateWorldMatrix( true, false );
+	sectionBounds.union( geometry.boundingBox.clone().applyMatrix4( thisParent.matrixWorld ) );
+	FitSectionSizeToBox( sectionBounds );
+
+	// 模型通常比面板晚建立，再套用一次面板目前的 Enabled 狀態（包含這次新加的模型）
+	SectionViewEffect( section_params.section[ 'Enabled' ] );
+
+	return clippedModel;
+}
+
+///依所有剖面模型合起來的範圍（世界座標 Box3）決定剖面蓋與平面外框的大小
+///剖面蓋放在「平面上離原點最近的點」，所以要涵蓋 中心偏移 + 半徑
+function FitSectionSizeToBox( box )
+{
+	if ( box.isEmpty() ) return;
+	const sphere = box.getBoundingSphere( new THREE.Sphere() );
+
+	const size = ( sphere.center.length() + sphere.radius ) * 2.2;
+
+	if ( sectionCap ) sectionCap.scale.set( size, size, 1 );
+	if ( sectionHelper ) sectionHelper.size = size;
+}
+
+///剖面平面，預設為右基準面
+export function SetupSectionPanel(thisScene,sectionCapColor= 0xE91E63)
+{
+	sectionPlane = new THREE.Plane( SECTION_NORMALS[ section_params.section[ 'Plane' ] ].clone(), section_params.section[ 'Offset' ] );
+
+	sectionHelper = new THREE.PlaneHelper( sectionPlane, 2, 0x000000 );
+	sectionHelper.visible = section_params.section[ 'Show Plane' ];
+	thisScene.add( sectionHelper );
+
+	sectionCap = CreateSectionCap(sectionCapColor);
+	thisScene.add( sectionCap );
+
+    // 套用面板的初始狀態
+    SectionViewEffect( section_params.section[ 'Enabled' ] );
+}
+
+///啟用 / 關閉剖視圖：裁切、stencil、剖面蓋、平面外框一起切換
+export function SectionViewEffect( on )
+{
+	for ( const g of sectionClipGroups ) g.enabled = on;
+	for ( const s of sectionStencils ) s.visible = on;
+	if ( sectionCap ) sectionCap.visible = on;
+	if ( sectionHelper ) sectionHelper.visible = on && section_params.section[ 'Show Plane' ];
+}
+
+export function UpdateSectionViewEffect()
+{
+    if(!sectionPlane||!sectionCap) return;
+
+    ///剖面蓋跟著剖面平面移動、轉向（正面朝向保留的那一側）
+	///關閉剖視圖時也持續更新，重新開啟時剖面蓋才會在正確位置
+	sectionPlane.coplanarPoint( sectionCap.position );
+	sectionCap.lookAt( sectionCap.position.clone().sub( sectionPlane.normal ) );
+}
+
+///生成剖面視圖控制面板
+export function InstSectionViewControlPanel({thisCSS=null,range=1}={})
+{
+    const gui = new GUI( { title: 'Section View', width: 220 } );
+
+    if(thisCSS)gui.domElement.classList.add( thisCSS );
+
+	gui.add( section_params.section, 'Enabled' ).onChange( SectionViewEffect );
+
+	gui.add( section_params.section, 'Plane', [ 'Front', 'Top', 'Right' ] ).onChange( SetSectionPlane );
+
+	// listen()：按 Flip Side 後 Offset 的數值會變號，滑桿自動同步顯示
+	gui.add( section_params.section, 'Offset', - 1*range, 1*range, 0.001 ).listen().onChange( d => sectionPlane.constant = d );
+
+	gui.add( section_params.section, 'Flip Side' ).onChange( () => {
+
+		sectionPlane.negate();
+		section_params.section[ 'Offset' ] = sectionPlane.constant;
+
+	} );
+
+	gui.add( section_params.section, 'Show Plane' ).onChange( v => sectionHelper.visible = v && section_params.section[ 'Enabled' ] );
+}

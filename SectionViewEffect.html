@@ -1,0 +1,288 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Section View Effect | fx_functions</title>
+		<link rel="stylesheet" type="text/css" href="fx_ui.css">
+		<style type="text/css">
+	
+			*{ 
+				box-sizing: border-box; 
+				margin: 0; 
+				padding: 0; 
+			}
+
+    		body { 
+				display: flex; 
+				width: 100vw; 
+				height: 100vh; 
+				overflow: hidden; 
+			}
+    
+    		/* 左側程式碼編輯區 */
+    		#editor-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  background: #1e1e1e;
+    		}
+
+    		/* 右側 Three.js 渲染區 */
+    		#render-container {
+    		  width: 50%;
+    		  height: 100%;
+    		  position: relative;
+    		}
+    
+    		canvas { 
+				width: 100%; 
+				height: 100%; 
+				display: block; 
+			}
+
+		</style>
+
+		<script type="importmap">
+			{
+			  "imports": {
+			    "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.webgpu.js",
+			    "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.tsl.js",
+			    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+			  }
+			}
+		</script>
+	</head>
+
+	<body>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs/loader.min.js"></script>
+		<div id="editor-container"></div>
+  		<div id="render-container"></div>
+
+		<script type="module">
+			import * as THREE from 'three';
+			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import * as FX from './fx_functions.js';
+			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+			let scene, camera, renderer, controls;
+			let threeContainer = document.getElementById("render-container");
+
+			const CameraDefaultPos = new THREE.Vector3(150.563,124.197,281.439);
+			const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+			let main_model=new THREE.Group();
+
+			init();
+			
+			async function init() 
+			{
+				FX.SetupEnvironment("cloud");
+
+				scene = new THREE.Scene();
+				camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 1000);
+
+				///1. 啟用 stencil: true (剖面蓋靠 stencil buffer 決定繪製位置)
+				renderer = new THREE.WebGPURenderer({ antialias: true, stencil: true });
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+				threeContainer.appendChild(renderer.domElement);
+
+				await renderer.init();
+
+				camera.position.copy(CameraDefaultPos);
+
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.enablePan = false;
+				controls.panSpeed = 0.4;
+				controls.enableDamping = true;
+				controls.target.copy(ControlsTargetDefaultPos);
+				controls.zoomSpeed = 0.5;
+				controls.autoRotate = false;
+				controls.update();
+
+				FX.LoadUltraHDRForWebGPU('./textures/hdri/kloofendal_48d_partly_cloudy_puresky_1k.jpg',scene);
+				scene.environmentRotation.y  = FX.ToThreeEulerAngle(-60);
+
+				///2.剖面平面&剖面蓋(必須在 SetupClippingModel 之前建立)
+				FX.SetupSectionPanel(scene,0x070f92);
+
+				///3.建立控制面板(必須在 SetupClippingModel 之前建立)
+				FX.InstSectionViewControlPanel({range:50});
+
+				const loader_cushion = new GLTFLoader();
+				loader_cushion.setDRACOLoader(FX.dracoLoader);
+				loader_cushion.load('./models/RubiksCube.glb', function ( gltf ) {
+
+					const model = gltf.scene;
+					model.position.set(0, 0, 0);
+					model.scale.set(1, 1, 1);
+					
+					model.traverse(function (object) {
+
+						if (object.name.includes("part_"))
+						{
+							const merged = FX.ReturnBufferGeometry(object, null, null, scene);
+							merged.removeFromParent();
+							const geometry = merged.geometry;
+
+							if (!geometry)
+							{
+								console.error('合併 geometry 失敗：各 Mesh 的屬性不一致（例如部分零//件沒有 UV）');
+								return;
+							}
+							
+							///4.建立剖面效果(stencil) & 被剖面平面裁切的模型
+							FX.SetupClippingModel(geometry, merged.material,main_model);
+						}
+
+					});
+
+					scene.add(main_model);
+
+				});
+
+				renderer.setAnimationLoop( animate );
+				window.addEventListener('resize', onWindowResize);
+			}
+
+			function onWindowResize() 
+			{
+				camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+			}
+
+			function animate(timestamp) 
+			{
+				controls.update();
+
+				///5.刷新剖面效果(剖面蓋跟著剖面平面移動，必須在 render 之前更新，否則會晚一幀)
+				FX.UpdateSectionViewEffect();
+
+				renderer.render(scene, camera);
+			}
+
+		
+const code_content = `
+		
+// SectionViewEffect工具使用範例 
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as FX from './fx_functions.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+let scene, camera, renderer, controls;
+let threeContainer = document.getElementById("render-container");
+
+const CameraDefaultPos = new THREE.Vector3(150.563,124.197,281.439);
+const ControlsTargetDefaultPos = new THREE.Vector3(0, 0, 0);
+
+let main_model=new THREE.Group();
+
+init();
+			
+async function init() 
+{
+	FX.SetupEnvironment("cloud");
+
+	scene = new THREE.Scene();
+	camera = new THREE.PerspectiveCamera(24, threeContainer.clientWidth / threeContainer.clientHeight, 0.1, 1000);
+
+	///1. 啟用 stencil: true (剖面蓋靠 stencil buffer 決定繪製位置)
+	renderer = new THREE.WebGPURenderer({ antialias: true, stencil: true });
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+	threeContainer.appendChild(renderer.domElement);
+
+	await renderer.init();
+
+	camera.position.copy(CameraDefaultPos);
+
+	controls = new OrbitControls(camera, renderer.domElement);
+	controls.enablePan = false;
+	controls.panSpeed = 0.4;
+	controls.enableDamping = true;
+	controls.target.copy(ControlsTargetDefaultPos);
+	controls.zoomSpeed = 0.5;
+	controls.autoRotate = false;
+	controls.update();
+
+	FX.LoadUltraHDRForWebGPU('./textures/hdri/kloofendal_48d_partly_cloudy_puresky_1k.jpg',scene);
+	scene.environmentRotation.y  = FX.ToThreeEulerAngle(-60);
+
+	///2.剖面平面&剖面蓋(必須在 SetupClippingModel 之前建立)
+	FX.SetupSectionPanel(scene,0x070f92);
+
+	///3.建立控制面板(必須在 SetupClippingModel 之前建立)
+	FX.InstSectionViewControlPanel({range:50});
+
+	const loader_cushion = new GLTFLoader();
+	loader_cushion.setDRACOLoader(FX.dracoLoader);
+	loader_cushion.load('./models/RubiksCube.glb', function ( gltf ) {
+
+		const model = gltf.scene;
+		model.position.set(0, 0, 0);
+		model.scale.set(1, 1, 1);
+					
+		model.traverse(function (object) {
+
+			if (object.name.includes("part_"))
+			{
+				const merged = FX.ReturnBufferGeometry(object, null, null, scene);
+				merged.removeFromParent();
+				const geometry = merged.geometry;
+
+				if (!geometry)
+				{
+					console.error('合併 geometry 失敗：各 Mesh 的屬性不一致（例如部分零//件沒有 UV）');
+					return;
+				}
+							
+				///4.建立剖面效果(stencil) & 被剖面平面裁切的模型
+				FX.SetupClippingModel(geometry, merged.material,main_model);
+			}
+
+		});
+
+		scene.add(main_model);
+
+	});
+
+	renderer.setAnimationLoop( animate );
+	window.addEventListener('resize', onWindowResize);
+}
+
+function onWindowResize() 
+{
+	camera.aspect = threeContainer.clientWidth / threeContainer.clientHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize(threeContainer.clientWidth, threeContainer.clientHeight);
+}
+
+function animate(timestamp) 
+{
+	controls.update();
+
+	///5.刷新剖面效果(剖面蓋跟著剖面平面移動，必須在 render 之前更新，否則會晚一幀)
+	FX.UpdateSectionViewEffect();
+
+	renderer.render(scene, camera);
+}
+	
+`;
+
+			// 3. 載入 Monaco Editor 顯示左側程式碼
+require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.36.1/min/vs' }});
+require(['vs/editor/editor.main'], function() {
+  monaco.editor.create(document.getElementById('editor-container'), {
+    value: code_content,
+    language: 'javascript',
+    theme: 'vs-dark',
+    automaticLayout: true
+  });
+});
+
+
+
+		</script>
+	</body>
+</html>
