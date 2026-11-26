@@ -364,4 +364,82 @@
 	transform: translateX(-50%) translateY(0);
 }
 
+/* 剖面視圖控制面板樣式*/
+.lil-gui.section-panel
+{
+	--background-color: transparent;
+	--title-background-color: transparent;
+	--text-color: #333;
+	--title-text-color: #333;
+	--widget-color: rgba(0, 0, 0, 0.06);
+	--hover-color: rgba(0, 0, 0, 0.1);
+	--focus-color: rgba(0, 0, 0, 0.14);
+	--number-color: #333;
+	--string-color: #333;
+	--font-family: 'Rajdhani', sans-serif;
+	--font-size: 13px;
+	--input-font-size: 13px;
+	--padding: 6px;
+	--spacing: 6px;
+	--widget-height: 26px;
+	--widget-border-radius: 6px;
+	--name-width: 42%;
 
+	background: rgba(255, 255, 255, 0.85);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border: 1px solid rgba(0, 0, 0, 0.1);
+	border-radius: 12px;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+	overflow: hidden;
+	font-weight: 500;
+	letter-spacing: 1px;
+}
+
+/* lil-gui 不同版本的 class 名稱可能有或沒有 lil- 前綴，兩種都寫 */
+.lil-gui.section-panel.autoPlace,
+.lil-gui.section-panel.lil-auto-place
+{
+	top: 16px;
+	right: 16px;
+	max-width: calc(100% - 32px);
+}
+
+.lil-gui.section-panel > .title,
+.lil-gui.section-panel > .lil-title
+{
+	padding: 0 10px;
+	font-weight: 700;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.lil-gui.section-panel > .children,
+.lil-gui.section-panel > .lil-children
+{
+	padding: 4px 6px 6px;
+}
+
+.lil-gui.section-panel.closed > .title,
+.lil-gui.section-panel.lil-closed > .lil-title
+{
+	border-bottom-color: transparent;
+}
+
+/* 滑桿填色與工具列 active 狀態同色 */
+.lil-gui.section-panel .slider .fill,
+.lil-gui.section-panel .lil-slider .lil-fill
+{
+	background: rgba(0, 0, 0, 0.5);
+	border-right-color: rgba(0, 0, 0, 0.5);
+}
+
+/* 勾選框勾選時與工具列 active 狀態同色 */
+.lil-gui.section-panel input[type="checkbox"]:checked
+{
+	background: rgba(0, 0, 0, 0.5);
+}
+
+.lil-gui.section-panel input[type="checkbox"]:checked:before
+{
+	color: #fff;
+}
