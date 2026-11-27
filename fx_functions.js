@@ -3397,7 +3397,7 @@ const section_params = {
 	section: {
 		'Enabled': false,       // 啟用剖視圖
 		'Plane': 'Right',       // 剖面基準面：Front / Top / Right
-		'Offset': 1,            // 剖面偏移距離（沿平面法線）
+		'Offset': 0,            // 剖面偏移距離（沿平面法線）
 		'Flip Side': false,     // 反轉剖面方向（切換保留哪一側）
 		'Show Plane': false     // 顯示剖面平面外框
 
